@@ -10,23 +10,25 @@ class WhatsAppService {
 
   async sendMessage(to, message) {
     try {
-      console.log(`Attempting to send message to ${to}. Message length: ${message.length}`);
-      console.log('First 50 chars of message:', message.substring(0, 50) + '...');
+      console.log(`Sending to: ${to}`);
       
-      // Log important config values (sanitized)
-      console.log('Using WhatsApp API version:', config.whatsapp.apiVersion);
-      console.log('Phone Number ID present:', !!config.whatsapp.phoneNumberId);
-      console.log('Access Token present:', !!config.whatsapp.accessToken);
-
+      // Clean the phone number (remove any +, spaces, etc.)
+      const cleanPhone = to.toString().replace(/\D/g, '');
+      console.log(`Cleaned phone: ${cleanPhone}`);
+      
+      const payload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: cleanPhone,
+        type: "text",
+        text: { body: message }
+      };
+      
+      console.log('Request payload:', JSON.stringify(payload));
+      
       const response = await axios.post(
-        `${this.baseUrl}/${this.phoneNumberId}/messages`,
-        {
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: "valid-whatsapp-number",
-          type: "text",
-          text: { body: "Your message text here" }
-        },
+        `https://graph.facebook.com/${config.whatsapp.apiVersion}/${this.phoneNumberId}/messages`,
+        payload,
         {
           headers: {
             'Authorization': `Bearer ${this.accessToken}`,
@@ -35,21 +37,21 @@ class WhatsAppService {
         }
       );
       
-      console.log('Full API response status:', response.status);
+      console.log('Response status:', response.status);
       console.log('Response data:', JSON.stringify(response.data));
-
+      
       return response.data;
     } catch (error) {
       console.error('Error sending WhatsApp message:', error.message);
-      
-      // Check for rate limiting errors (HTTP 429)
-      if (error.response && error.response.status === 429) {
-        console.error('RATE LIMITED! WhatsApp API throttling detected.');
-        console.error('Retry-After:', error.response.headers['retry-after']);
-        // Add delay or backoff logic here if needed
-        return { error: 'Rate limit exceeded. Please try again later.' };
+      if (error.response) {
+        console.error('Response error details:', {
+          status: error.response.status,
+          data: JSON.stringify(error.response.data),
+          headers: JSON.stringify(error.response.headers)
+        });
+      } else {
+        console.error('No response object available');
       }
-      
       throw error;
     }
   }
