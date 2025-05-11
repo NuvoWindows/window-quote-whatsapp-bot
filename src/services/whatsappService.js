@@ -23,9 +23,9 @@ class WhatsAppService {
         {
           messaging_product: "whatsapp",
           recipient_type: "individual",
-          to: to,
+          to: "valid-whatsapp-number",
           type: "text",
-          text: { body: message }
+          text: { body: "Your message text here" }
         },
         {
           headers: {
@@ -35,15 +35,19 @@ class WhatsAppService {
         }
       );
       
-      console.log('WhatsApp API response:', JSON.stringify(response.data));
+      console.log('Full API response status:', response.status);
+      console.log('Response data:', JSON.stringify(response.data));
+
       return response.data;
     } catch (error) {
       console.error('Error sending WhatsApp message:', error.message);
       
-      // Simpler version just for debugging
+      // Check for rate limiting errors (HTTP 429)
       if (error.response && error.response.status === 429) {
         console.error('RATE LIMITED! WhatsApp API throttling detected.');
         console.error('Retry-After:', error.response.headers['retry-after']);
+        // Add delay or backoff logic here if needed
+        return { error: 'Rate limit exceeded. Please try again later.' };
       }
       
       throw error;
