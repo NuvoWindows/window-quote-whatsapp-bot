@@ -10,6 +10,13 @@ class ClaudeService {
 
   async generateResponse(prompt, conversationContext = []) {
     try {
+      console.log('Generating Claude response for:', prompt);
+      console.log('Using conversation context:', JSON.stringify(conversationContext.slice(-2)));
+    
+      // Log your Claude API key format (don't log the full key)
+      console.log('API key present:', !!config.claude.apiKey);
+      console.log('API key format check:', config.claude.apiKey?.substring(0, 5) + '...');
+      
       // Prepare the content for the Claude API
       const systemPrompt = `You are a helpful window quote assistant for a window installation company. 
       Your goal is to gather information to provide a rough quote for window installation.
@@ -45,9 +52,10 @@ class ClaudeService {
         ])
       });
 
+      console.log('Claude response received:', response.content[0].text.substring(0, 50) + '...');
       return response.content[0].text;
     } catch (error) {
-      console.error('Error generating Claude response:', error);
+      console.error('Error generating Claude response:', error.message, error.stack);
       return "I'm sorry, I'm having trouble processing your request right now. Could you try again in a moment?";
     }
   }

@@ -10,6 +10,14 @@ class WhatsAppService {
 
   async sendMessage(to, message) {
     try {
+      console.log(`Attempting to send message to ${to}. Message length: ${message.length}`);
+      console.log('First 50 chars of message:', message.substring(0, 50) + '...');
+      
+      // Log important config values (sanitized)
+      console.log('Using WhatsApp API version:', config.whatsapp.apiVersion);
+      console.log('Phone Number ID present:', !!config.whatsapp.phoneNumberId);
+      console.log('Access Token present:', !!config.whatsapp.accessToken);
+
       const response = await axios.post(
         `${this.baseUrl}/${this.phoneNumberId}/messages`,
         {
@@ -27,9 +35,17 @@ class WhatsAppService {
         }
       );
       
+      console.log('WhatsApp API response:', JSON.stringify(response.data));
       return response.data;
     } catch (error) {
-      console.error('Error sending WhatsApp message:', error.response?.data || error.message);
+      console.error('Error sending WhatsApp message:', error.message);
+      
+      // Simpler version just for debugging
+      if (error.response && error.response.status === 429) {
+        console.error('RATE LIMITED! WhatsApp API throttling detected.');
+        console.error('Retry-After:', error.response.headers['retry-after']);
+      }
+      
       throw error;
     }
   }
