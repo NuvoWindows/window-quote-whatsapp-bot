@@ -25,14 +25,26 @@ npm install
 
 ## Configuration
 
-Create a `.env` file in the root directory with the following variables:
+1. Create a `.env` file in the root directory:
+   ```bash
+   cp .env.example .env
+   ```
 
-```
-PORT=3000
-WHATSAPP_TOKEN=your_whatsapp_token
-WHATSAPP_VERIFY_TOKEN=your_verify_token
-CLAUDE_API_KEY=your_claude_api_key
-```
+2. Fill in your credentials in the `.env` file:
+   ```
+   PORT=3000
+   WHATSAPP_API_VERSION=v19.0
+   WHATSAPP_PHONE_NUMBER_ID=your_phone_number_id
+   WHATSAPP_ACCESS_TOKEN=your_whatsapp_access_token
+   WHATSAPP_VERIFY_TOKEN=your_verify_token
+   CLAUDE_API_KEY=your_claude_api_key
+   ```
+
+3. Alternatively, you can use the credentials JSON template:
+   ```bash
+   cp credentials.example.json credentials.json
+   ```
+   Then edit `credentials.json` with your actual credentials.
 
 ## Usage
 
@@ -48,7 +60,7 @@ npm run dev
 
 - `GET /api/webhook`: Webhook verification for WhatsApp API
 - `POST /api/webhook`: Webhook to receive WhatsApp messages
-- `POST /api/quote`: Generate a window installation quote
+- `POST /api/generate-quote`: Generate a window installation quote
 
 ## Project Structure
 
@@ -60,6 +72,24 @@ src/
 ├── services/       # Business logic
 └── utils/          # Utility functions
 ```
+
+## Deployment
+
+The application follows a multi-environment deployment strategy:
+
+### Testing Environment (Railway)
+- Quick setup with free tier for testing
+- Automatic deployments from GitHub
+- Environment variables configured in Railway dashboard
+
+### Production Environment (Render)
+- Reliable hosting for production workloads
+- Scalable Web Service with competitive pricing
+- Zero-downtime deployments and advanced monitoring
+
+## Documentation
+
+For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## License
 
