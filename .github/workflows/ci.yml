@@ -1,38 +1,65 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
+  # Run on all branches and PRs
   push:
-    branches: [ main ]
+    branches: [ '**' ]
   pull_request:
     branches: [ main ]
+  # Run on workflow dispatch (manual trigger)
+  workflow_dispatch:
 
 jobs:
-  build:
+  build-test-deploy:
     runs-on: ubuntu-latest
-    
+
     strategy:
       matrix:
         node-version: [18.x]
-        
+
     steps:
     - uses: actions/checkout@v3
-    
+      with:
+        # Full git history for auto-pushing
+        fetch-depth: 0
+
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        
+
     - name: Install dependencies
       run: npm ci
-      
+
     - name: Lint check
       run: npm run lint || echo "No linting configured"
-      
+
     - name: Build
       run: npm run build --if-present
-      
+
     - name: Test
       run: npm test || echo "No tests configured"
       env:
         CI: true
+
+    # Auto-commit and push local changes, if any
+    - name: Check for local changes
+      id: check_changes
+      run: |
+        if [[ -n $(git status --porcelain) ]]; then
+          echo "has_changes=true" >> $GITHUB_ENV
+        else
+          echo "has_changes=false" >> $GITHUB_ENV
+        fi
+
+    - name: Commit and push changes
+      if: env.has_changes == 'true'
+      run: |
+        git config --global user.name 'bpesacov'
+        git config --global user.email 'barpesacov@gmail.com'
+        git add -A
+        git commit -m "Auto-commit changes from CI workflow"
+        git push origin HEAD
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
