@@ -49,6 +49,24 @@ jobs:
       run: |
         if [[ -n $(git status --porcelain) ]]; then
           echo "has_changes=true" >> $GITHUB_ENV
+          # Get list of changed files
+          CHANGED_FILES=$(git status --porcelain | awk '{print $2}' | tr '\n' ', ' | sed 's/,$//')
+          echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
+
+          # Determine change type and affected components
+          if echo "$CHANGED_FILES" | grep -q "src/services/claudeService.js"; then
+            echo "commit_prefix=Update AI prompt:" >> $GITHUB_OUTPUT
+          elif echo "$CHANGED_FILES" | grep -q "src/services/"; then
+            echo "commit_prefix=Update services:" >> $GITHUB_OUTPUT
+          elif echo "$CHANGED_FILES" | grep -q "src/controllers/"; then
+            echo "commit_prefix=Update controllers:" >> $GITHUB_OUTPUT
+          elif echo "$CHANGED_FILES" | grep -q "src/utils/"; then
+            echo "commit_prefix=Update utilities:" >> $GITHUB_OUTPUT
+          elif echo "$CHANGED_FILES" | grep -q ".github/"; then
+            echo "commit_prefix=Update GitHub workflows:" >> $GITHUB_OUTPUT
+          else
+            echo "commit_prefix=Update files:" >> $GITHUB_OUTPUT
+          fi
         else
           echo "has_changes=false" >> $GITHUB_ENV
         fi
@@ -59,7 +77,16 @@ jobs:
         git config --global user.name 'bpesacov'
         git config --global user.email 'barpesacov@gmail.com'
         git add -A
-        git commit -m "Auto-commit changes from CI workflow"
+
+        # Create descriptive commit message
+        COMMIT_MSG="${{ steps.check_changes.outputs.commit_prefix }} Changes to ${{ steps.check_changes.outputs.changed_files }}"
+
+        # If commit message is too long, truncate it
+        if [ ${#COMMIT_MSG} -gt 100 ]; then
+          COMMIT_MSG="${COMMIT_MSG:0:97}..."
+        fi
+
+        git commit -m "$COMMIT_MSG"
         git push origin HEAD
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
