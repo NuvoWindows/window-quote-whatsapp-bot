@@ -1,38 +1,39 @@
 # Auto-Push for Windows Users
 
-This project includes a convenient script to commit and push in a single command. This makes the workflow much simpler.
+This project includes convenient npm scripts to simplify git operations. This makes the workflow much simpler, especially on Windows.
 
 ## How to Use
 
-Instead of using the normal Git commands, use the npm script:
+Instead of using the normal Git commands, use these npm scripts:
 
 ```bash
-npm run push "Your commit message here"
+# To add all files and commit with a message
+npm run commit "Your commit message here"
+
+# To push your committed changes
+npm run push
+
+# To commit and push in one step (add, commit, push)
+npm run cp "Your commit message here"
 ```
 
-This will:
-1. Add all your changes
-2. Create a commit with your message
-3. Automatically push to the current branch
-
-## Example
+## Examples
 
 ```bash
+# Just commit
+npm run commit "Update AI prompt with improved conversation flow"
+
+# Just push
+npm run push
+
 # Commit and push in one step
-npm run push "Update AI prompt with improved conversation flow"
+npm run cp "Fix Claude API authentication error handling"
 ```
 
 ## Benefits
 
-- Works reliably on all systems (Windows, Mac, Linux)
+- Works reliably on Windows with SSH authentication
 - Simple to use
 - No need to manually run multiple Git commands
 - Integrated with npm scripts
-
-## Manual Method
-
-If you prefer, you can also run the script directly:
-
-```bash
-./autopush.sh "Your commit message here"
-```
+- Uses native Git commands for maximum compatibility
