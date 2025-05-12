@@ -4,7 +4,7 @@
 # Create hooks directory if it doesn't exist
 mkdir -p .git/hooks
 
-# Create post-commit hook
+# Create post-commit hook - ensure we use LF line endings
 cat > .git/hooks/post-commit << 'EOF'
 #!/bin/sh
 # Auto-push after commit
@@ -21,6 +21,13 @@ git push origin $BRANCH
 # Show success message
 echo "✅ Successfully pushed to $BRANCH"
 EOF
+
+# Convert Windows line endings (CRLF) to Unix (LF) if necessary
+if command -v dos2unix > /dev/null; then
+    dos2unix .git/hooks/post-commit
+else
+    sed -i 's/\r$//' .git/hooks/post-commit
+fi
 
 # Make hook executable
 chmod +x .git/hooks/post-commit
