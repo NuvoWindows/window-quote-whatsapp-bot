@@ -6,7 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "push": "bash autopush.sh"
+    "commit": "git add . && git commit -m",
+    "push": "git push origin main",
+    "cp": "npm run commit && npm run push"
   },
   "keywords": [],
   "author": "",
