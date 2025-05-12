@@ -1,7 +1,7 @@
-name: CI/CD Pipeline
+name: CI Pipeline
 
 on:
-  # Run on all branches and PRs
+  # Run on push to any branch and PRs to main
   push:
     branches: [ '**' ]
   pull_request:
@@ -10,74 +10,32 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-test-deploy:
+  build-and-test:
     runs-on: ubuntu-latest
-
+    
     strategy:
       matrix:
         node-version: [18.x]
-
+        
     steps:
     - uses: actions/checkout@v3
-      with:
-        # Full git history for auto-pushing
-        fetch-depth: 0
-
+    
     - name: Use Node.js ${{ matrix.node-version }}
       uses: actions/setup-node@v3
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-
+        
     - name: Install dependencies
       run: npm ci
-
+      
     - name: Lint check
       run: npm run lint || echo "No linting configured"
-
+      
     - name: Build
       run: npm run build --if-present
-
+      
     - name: Test
       run: npm test || echo "No tests configured"
       env:
         CI: true
-
-    # Auto-commit and push local changes, if any
-    - name: Check for local changes
-      id: check_changes
-      run: |
-        if [[ -n $(git status --porcelain) ]]; then
-          echo "has_changes=true" >> $GITHUB_ENV
-          # Get list of changed files
-          CHANGED_FILES=$(git status --porcelain | awk '{print $2}' | tr '\n' ', ' | sed 's/,$//')
-          echo "changed_files=$CHANGED_FILES" >> $GITHUB_OUTPUT
-
-          # Determine change type and affected components
-          if echo "$CHANGED_FILES" | grep -q "src/services/claudeService.js"; then
-            echo "commit_prefix=Update AI prompt:" >> $GITHUB_OUTPUT
-          elif echo "$CHANGED_FILES" | grep -q "src/services/"; then
-            echo "commit_prefix=Update services:" >> $GITHUB_OUTPUT
-          elif echo "$CHANGED_FILES" | grep -q "src/controllers/"; then
-            echo "commit_prefix=Update controllers:" >> $GITHUB_OUTPUT
-          elif echo "$CHANGED_FILES" | grep -q "src/utils/"; then
-            echo "commit_prefix=Update utilities:" >> $GITHUB_OUTPUT
-          elif echo "$CHANGED_FILES" | grep -q ".github/"; then
-            echo "commit_prefix=Update GitHub workflows:" >> $GITHUB_OUTPUT
-          else
-            echo "commit_prefix=Update files:" >> $GITHUB_OUTPUT
-          fi
-        else
-          echo "has_changes=false" >> $GITHUB_ENV
-        fi
-
-    - name: Commit and push changes
-      if: env.has_changes == 'true'
-      # Using a dedicated action that handles authentication properly
-      uses: EndBug/add-and-commit@v9
-      with:
-        author_name: bpesacov
-        author_email: barpesacov@gmail.com
-        message: "${{ steps.check_changes.outputs.commit_prefix }} Changes to ${{ steps.check_changes.outputs.changed_files }}"
-        add: "."
-        push: true
