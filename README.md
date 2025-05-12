@@ -89,7 +89,9 @@ The application follows a multi-environment deployment strategy:
 
 ## Documentation
 
-For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
+- For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md)
+- For implementation roadmap, see [ROADMAP.md](ROADMAP.md)
+- For auto-push functionality, see [AUTO-PUSH.md](AUTO-PUSH.md)
 
 ## License
 
