@@ -6,9 +6,10 @@ class ClaudeService {
     this.client = new Anthropic({
       apiKey: config.claude.apiKey,
     });
-    // Retry configuration
-    this.maxRetries = 3;
-    this.baseDelayMs = 300;
+    // Retry configuration from environment variables
+    this.maxRetries = config.claude.retries.maxAttempts;
+    this.baseDelayMs = config.claude.retries.baseDelayMs;
+    this.maxDelayMs = config.claude.retries.maxDelayMs;
   }
 
   /**
@@ -28,7 +29,7 @@ class ClaudeService {
   getBackoffDelay(retryCount) {
     return Math.min(
       this.baseDelayMs * Math.pow(2, retryCount) + Math.random() * 100,
-      3000 // Max 3 seconds
+      this.maxDelayMs
     );
   }
 

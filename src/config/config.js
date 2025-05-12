@@ -9,6 +9,11 @@ module.exports = {
     verifyToken: process.env.WHATSAPP_VERIFY_TOKEN
   },
   claude: {
-    apiKey: process.env.CLAUDE_API_KEY
+    apiKey: process.env.CLAUDE_API_KEY,
+    retries: {
+      maxAttempts: parseInt(process.env.CLAUDE_MAX_RETRIES || '3'),
+      baseDelayMs: parseInt(process.env.CLAUDE_RETRY_BASE_DELAY_MS || '300'),
+      maxDelayMs: parseInt(process.env.CLAUDE_RETRY_MAX_DELAY_MS || '3000')
+    }
   }
 };
