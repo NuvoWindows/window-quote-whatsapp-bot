@@ -73,20 +73,11 @@ jobs:
 
     - name: Commit and push changes
       if: env.has_changes == 'true'
-      run: |
-        git config --global user.name 'bpesacov'
-        git config --global user.email 'barpesacov@gmail.com'
-        git add -A
-
-        # Create descriptive commit message
-        COMMIT_MSG="${{ steps.check_changes.outputs.commit_prefix }} Changes to ${{ steps.check_changes.outputs.changed_files }}"
-
-        # If commit message is too long, truncate it
-        if [ ${#COMMIT_MSG} -gt 100 ]; then
-          COMMIT_MSG="${COMMIT_MSG:0:97}..."
-        fi
-
-        git commit -m "$COMMIT_MSG"
-        git push origin HEAD
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # Using a dedicated action that handles authentication properly
+      uses: EndBug/add-and-commit@v9
+      with:
+        author_name: bpesacov
+        author_email: barpesacov@gmail.com
+        message: "${{ steps.check_changes.outputs.commit_prefix }} Changes to ${{ steps.check_changes.outputs.changed_files }}"
+        add: "."
+        push: true
