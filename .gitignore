@@ -19,6 +19,12 @@ credentials.*.json
 logs/
 *.log
 
+# Database
+data/
+*.db
+*.sqlite
+*.sqlite3
+
 # Build
 build/
 dist/

@@ -15,5 +15,12 @@ module.exports = {
       baseDelayMs: parseInt(process.env.CLAUDE_RETRY_BASE_DELAY_MS || '300'),
       maxDelayMs: parseInt(process.env.CLAUDE_RETRY_MAX_DELAY_MS || '3000')
     }
+  },
+  admin: {
+    token: process.env.ADMIN_TOKEN || ''
+  },
+  db: {
+    path: process.env.DB_PATH || './data/bot.db',
+    conversation_expiry_days: parseInt(process.env.CONVERSATION_EXPIRY_DAYS || '30')
   }
 };

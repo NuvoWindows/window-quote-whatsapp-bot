@@ -9,24 +9,35 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 - ✓ Environment configuration
 
 ## Phase 2: AI Integration
-*Estimated timeline: 1-2 weeks*
+*Estimated timeline: 2-3 weeks*
 
 **Milestone: Functional Claude AI Conversation Flow**
-- [ ] Implement Claude AI conversation processing beyond test responses
-- [ ] Fine-tune system prompt for quote gathering
-- [ ] Test Claude response quality with various user inputs
-- [ ] Adjust conversation flow based on testing results
+- [X] Implement Claude AI conversation processing beyond test responses
+- [X] Fine-tune system prompt for quote gathering
+- [X] Test Claude response quality with various user inputs
+- [X] Adjust conversation flow based on testing results
+- [ ] Optimize system prompt to leverage structured window specification data
+- [ ] Enhance context handling for returning users
 
 **Tasks:**
-1. Update `claudeService.js` to use production-ready prompt
-2. Add conversation state management
-3. Implement retry mechanism for Claude API failures
-4. Add logging for Claude responses for debugging
+1. ✅ Update `claudeService.js` to use production-ready prompt
+2. ✅ Add conversation state management with persistent storage
+3. ✅ Implement retry mechanism for Claude API failures
+4. ✅ Add comprehensive logging for Claude responses
+5. ✅ Implement SQLite database for conversation persistence
+6. ✅ Create window specification parser to extract structured data
+7. ✅ Add admin API for conversation management
+8. [ ] Optimize system prompt to use extracted window specifications
+9. [ ] Add instructions for handling returning users with existing quotes
+10. [ ] Implement context summarization for long conversations
+11. [ ] Write unit and integration tests for conversation manager
+12. [ ] Add tests for Claude service and retry mechanisms
+13. [ ] Create tests for the logging system
 
-## Phase 3: Quote Processing
-*Estimated timeline: 1-2 weeks*
+## Phase 3: Quote Processing & Advanced Features
+*Estimated timeline: 2-3 weeks*
 
-**Milestone: Working Quote Calculation**
+**Milestone 1: Working Quote Calculation**
 - [ ] Enhance message parser to extract all required window specifications
 - [ ] Verify quote calculation accuracy with sample inputs
 - [ ] Add fallback mechanisms for missing specification data
@@ -37,6 +48,34 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 2. Enhance `quoteService.js` with more pricing variables
 3. Add validation for dimensions and window types
 4. Implement error handling for edge cases
+
+**Milestone 2: Admin Dashboard & Analytics**
+- [ ] Create a web interface for the admin API
+- [ ] Implement conversation visualization and management
+- [ ] Add user interaction metrics and analytics
+- [ ] Create log analysis and monitoring system
+
+**Tasks:**
+1. Design a simple, responsive admin dashboard UI
+2. Implement secure authentication for admin access
+3. Create visualizations for conversation flows
+4. Add conversation search and filtering
+5. Implement advanced logging features (compression, search)
+6. Add analytics for user interactions and conversation patterns
+
+**Milestone 3: System Robustness**
+- [ ] Migrate to a production-grade database
+- [ ] Implement advanced error recovery mechanisms
+- [ ] Set up monitoring and alerting
+- [ ] Ensure data integrity and backup procedures
+
+**Tasks:**
+1. Plan migration from SQLite to PostgreSQL
+2. Design connection pooling and scaling strategies
+3. Enhance error handling for network failures
+4. Implement sophisticated retry strategies
+5. Add system health monitoring and alerts
+6. Create backup and restoration procedures
 
 ## Phase 4: User Experience Enhancement
 *Estimated timeline: 1-2 weeks*

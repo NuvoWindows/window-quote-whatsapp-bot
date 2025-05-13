@@ -7,21 +7,27 @@ This document outlines the architecture of the Window Quote WhatsApp Bot, a serv
 ## System Architecture
 
 ```
-┌───────────────────┐      ┌─────────────────────┐      ┌─────────────────┐
-│                   │      │                     │      │                 │
-│  WhatsApp API     │──────▶  Express Server     │──────▶  Claude AI      │
-│  (Meta Graph API) │◀─────│  (Node.js)          │◀─────│  (Anthropic)    │
-│                   │      │                     │      │                 │
-└───────────────────┘      └─────────────────────┘      └─────────────────┘
-                                    │   ▲
-                                    ▼   │
-                            ┌─────────────────────┐
-                            │                     │
-                            │  In-Memory Storage  │
-                            │  (Conversation      │
-                            │   Context)          │
-                            │                     │
-                            └─────────────────────┘
+┌───────────────────┐      ┌─────────────────────────────┐      ┌─────────────────┐
+│                   │      │                             │      │                 │
+│  WhatsApp API     │──────▶  Express Server             │──────▶  Claude AI      │
+│  (Meta Graph API) │◀─────│  (Node.js)                  │◀─────│  (Anthropic)    │
+│                   │      │                             │      │                 │
+└───────────────────┘      └───────────┬─────────────────┘      └─────────────────┘
+                                       │   ▲
+                                       ▼   │
+                           ┌────────────────────────────┐
+                           │                            │
+                           │  Conversation Manager      │
+                           │                            │
+                           └────────────┬───────────────┘
+                                        │   ▲
+                                        ▼   │
+                           ┌────────────────────────────┐
+                           │                            │
+                           │  SQLite Database           │
+                           │  (Persistent Storage)      │
+                           │                            │
+                           └────────────────────────────┘
 ```
 
 ## Component Breakdown
@@ -62,13 +68,16 @@ The application can calculate window installation quotes based on provided infor
 - **Quote Service**: Calculates estimates based on window specifications
 - **Message Parser**: Extracts window specifications from natural language input
 
-### 5. In-Memory Storage
+### 5. Conversation Context Management
 
-The application uses in-memory storage to maintain conversation context.
+The application uses a persistent SQLite database to maintain conversation context.
 
 **Key Components:**
-- **Conversations Map**: Stores conversation history by phone number
-- **Context Management**: Maintains the last 10 messages for context
+- **Conversation Manager**: Central service that handles conversation persistence and retrieval
+- **SQLite Database**: Stores conversations, messages, and structured window specifications
+- **Context Optimization**: Enhances conversations with previously extracted window specifications
+- **Window Specification Parser**: Extracts structured data from conversation messages
+- **Expiry Mechanism**: Automatically purges old conversations after 30 days
 
 ## Data Flow
 
@@ -76,8 +85,12 @@ The application uses in-memory storage to maintain conversation context.
    - User sends a message via WhatsApp
    - Meta delivers the message to the webhook endpoint
    - WhatsApp controller processes the message
-   - Message is added to the conversation history
-   - Claude generates a response based on the message and conversation history
+   - Conversation Manager retrieves or creates conversation context
+   - User message is persisted to the database
+   - Specification parser attempts to extract window details
+   - Context is optimized with any previously stored specifications
+   - Claude generates a response based on the enhanced context
+   - Assistant response is persisted to the database
    - Response is sent back to the user via WhatsApp
 
 2. **Quote Generation Flow**:
@@ -88,10 +101,17 @@ The application uses in-memory storage to maintain conversation context.
 
 ## API Endpoints
 
+### WhatsApp API
 - `GET /api/webhook`: Webhook verification for WhatsApp API
 - `POST /api/webhook`: Webhook to receive WhatsApp messages
 - `POST /api/generate-quote`: Direct endpoint to generate a window installation quote
 - `GET /health`: Health check endpoint
+
+### Admin API
+- `GET /admin/conversations`: List all active conversations
+- `GET /admin/conversations/:userId`: Get details for a specific conversation
+- `DELETE /admin/conversations/:userId`: Delete a specific conversation
+- `POST /admin/expire-conversations`: Force expire old conversations
 
 ## Environment Configuration
 
@@ -111,6 +131,24 @@ WHATSAPP_VERIFY_TOKEN=xxx        # Custom verification token for webhook verific
 
 # Claude AI Configuration
 CLAUDE_API_KEY=sk-ant-xxx        # Anthropic API key for Claude AI
+CLAUDE_MAX_RETRIES=3             # Maximum number of retry attempts
+CLAUDE_RETRY_BASE_DELAY_MS=300   # Base delay for exponential backoff
+CLAUDE_RETRY_MAX_DELAY_MS=3000   # Maximum delay between retries
+
+# Logging Configuration
+LOG_LEVEL=info                   # Logging level (debug, info, warn, error)
+LOG_TO_FILE=true                 # Whether to write logs to files
+LOG_DIR=logs                     # Directory for log files
+MAX_LOG_SIZE=10485760            # Maximum log file size (10MB)
+MAX_LOG_FILES=10                 # Maximum number of rotated log files
+REDACT_PII=false                 # Whether to redact personal information in logs
+
+# Database Configuration
+DB_PATH=./data/bot.db            # Path to SQLite database file
+CONVERSATION_EXPIRY_DAYS=30      # Days before conversations are expired
+
+# Admin Interface Configuration
+ADMIN_TOKEN=xxx                  # Secret token for admin API authentication
 ```
 
 ### Environment Setup
@@ -135,7 +173,10 @@ The `config.js` file centralizes all environment variables and provides them to 
 
 - WhatsApp webhook verification ensures messages are from valid sources
 - API keys are stored as environment variables
+- Token-based authentication for admin API
+- SQLite database with proper permissions
 - Error handling prevents sensitive information leakage
+- Option to redact personal information in logs (configurable)
 
 ## Deployment Architecture
 
@@ -291,10 +332,10 @@ Render is used for production deployments due to its reliability, scalability, a
 Potential areas for enhancement include:
 
 ### Technical Improvements
-- Database integration for persistent conversation storage
+- Migration to a more robust database (PostgreSQL/MongoDB) for production scale
 - Webhook signature validation for enhanced security
 - Rate limiting and request throttling
-- Comprehensive error handling and monitoring
+- Advanced context summarization algorithms
 - Unit and integration testing suite
 
 ### Functional Enhancements
@@ -316,29 +357,50 @@ Potential areas for enhancement include:
 ### WhatsApp Message Processing
 
 ```
-┌────────┐          ┌─────────┐          ┌───────────┐          ┌──────┐
-│WhatsApp│          │Webhook  │          │Claude     │          │Quote │
-│API     │          │Controller│          │Service    │          │Service│
-└───┬────┘          └────┬────┘          └─────┬─────┘          └───┬──┘
-    │                    │                     │                    │
-    │ POST /webhook      │                     │                    │
-    │───────────────────>│                     │                    │
-    │                    │                     │                    │
-    │                    │ Mark message as read│                    │
-    │<───────────────────│                     │                    │
-    │                    │                     │                    │
-    │                    │ Generate response   │                    │
-    │                    │────────────────────>│                    │
-    │                    │                     │                    │
-    │                    │                     │ Calculate estimate │
-    │                    │                     │───────────────────>│
-    │                    │                     │                    │
-    │                    │                     │<───────────────────│
-    │                    │<────────────────────│                    │
-    │                    │                     │                    │
-    │ Send message       │                     │                    │
-    │<───────────────────│                     │                    │
-    │                    │                     │                    │
+┌────────┐      ┌─────────┐      ┌───────────────┐      ┌───────────┐      ┌──────┐
+│WhatsApp│      │Webhook  │      │Conversation   │      │Claude     │      │Quote │
+│API     │      │Controller│      │Manager       │      │Service    │      │Service│
+└───┬────┘      └────┬────┘      └──────┬────────┘      └─────┬─────┘      └───┬──┘
+    │                │                   │                     │                │
+    │ POST /webhook  │                   │                     │                │
+    │───────────────>│                   │                     │                │
+    │                │                   │                     │                │
+    │                │ Mark message read │                     │                │
+    │<───────────────│                   │                     │                │
+    │                │                   │                     │                │
+    │                │ Get conversation  │                     │                │
+    │                │─────────────────>│                     │                │
+    │                │                   │                     │                │
+    │                │<─────────────────│                     │                │
+    │                │                   │                     │                │
+    │                │ Add user message  │                     │                │
+    │                │─────────────────>│                     │                │
+    │                │                   │                     │                │
+    │                │<─────────────────│                     │                │
+    │                │                   │                     │                │
+    │                │ Get context       │                     │                │
+    │                │─────────────────>│                     │                │
+    │                │                   │                     │                │
+    │                │<─────────────────│                     │                │
+    │                │                   │                     │                │
+    │                │ Generate response │                     │                │
+    │                │─────────────────────────────────────>│                │
+    │                │                   │                     │                │
+    │                │                   │                     │ Calculate quote│
+    │                │                   │                     │───────────────>│
+    │                │                   │                     │                │
+    │                │                   │                     │<───────────────│
+    │                │                   │                     │                │
+    │                │<─────────────────────────────────────│                │
+    │                │                   │                     │                │
+    │                │ Add assistant msg │                     │                │
+    │                │─────────────────>│                     │                │
+    │                │                   │                     │                │
+    │                │<─────────────────│                     │                │
+    │                │                   │                     │                │
+    │ Send message   │                   │                     │                │
+    │<───────────────│                   │                     │                │
+    │                │                   │                     │                │
 ```
 
 ## Code Organization
@@ -351,12 +413,21 @@ src/
 │   ├── quoteController.js   # Quote generation controller
 │   └── whatsappController.js # WhatsApp webhook controller
 ├── routes/         # API routes
-│   └── whatsappRoutes.js    # Express routes definitions
+│   ├── whatsappRoutes.js    # WhatsApp webhook routes
+│   └── adminRoutes.js       # Admin API routes
 ├── services/       # Business logic
 │   ├── claudeService.js     # Claude AI integration
+│   ├── conversationManager.js # Conversation persistence
 │   ├── quoteService.js      # Quote calculation logic
 │   └── whatsappService.js   # WhatsApp API integration
 ├── utils/          # Utility functions
-│   └── messageParser.js     # Extract info from messages
+│   ├── database.js          # SQLite database management
+│   ├── logger.js            # Structured logging system
+│   ├── messageParser.js     # WhatsApp message parsing
+│   └── windowSpecParser.js  # Window specification extraction
 └── index.js        # Application entry point
+
+data/               # SQLite database storage (Git-ignored)
+logs/               # Application logs (Git-ignored)
+docs/               # Technical documentation
 ```

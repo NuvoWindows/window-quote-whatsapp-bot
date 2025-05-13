@@ -1,5 +1,6 @@
 const { Anthropic } = require('@anthropic-ai/sdk');
 const config = require('../config/config');
+const logger = require('../utils/logger');
 
 class ClaudeService {
   constructor() {
@@ -81,17 +82,48 @@ class ClaudeService {
     return "I'm sorry, I'm having trouble processing your request right now. Could you try again in a moment?";
   }
 
-  async generateResponse(prompt, conversationContext = []) {
+  async generateResponse(prompt, conversationContext = [], userInfo = {}) {
     let retries = 0;
     let lastError = null;
+    const startTime = Date.now();
+    const requestId = Date.now().toString(36) + Math.random().toString(36).substring(2, 7);
 
-    console.log('Generating Claude response for:', prompt);
-    console.log('Using conversation context:', JSON.stringify(conversationContext.slice(-2)));
-  
+    // Extract relevant user information for logging
+    const phone = userInfo.phone || 'unknown';
+    const name = userInfo.name || 'unknown';
+
+    // Log request details
+    logger.info('Generating Claude response', {
+      requestId,
+      phone,
+      prompt_length: prompt.length,
+      context_messages: conversationContext.length
+    });
+
+    logger.debug('Request details', {
+      requestId,
+      prompt: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+      context: JSON.stringify(conversationContext.slice(-2))
+    });
+
+    // Log Claude API request
+    logger.logClaude({
+      type: 'request',
+      requestId,
+      user: phone,
+      user_name: name,
+      timestamp: new Date().toISOString(),
+      query: prompt,
+      context_length: conversationContext.length,
+      summary: `Request from ${name}: ${prompt.substring(0, 30)}...`
+    });
+
     // Log your Claude API key format (don't log the full key)
-    console.log('API key present:', !!config.claude.apiKey);
-    console.log('API key format check:', config.claude.apiKey?.substring(0, 5) + '...');
-    
+    logger.debug('API key validation', {
+      has_key: !!config.claude.apiKey,
+      key_format: config.claude.apiKey?.substring(0, 5) + '...'
+    });
+
     // Prepare the content for the Claude API
     const systemPrompt = `You are Bob, a helpful window quote assistant for Nuvo Windows and Doors.
       Your goal is to gather information from customers through WhatsApp to provide accurate window installation price quotes.
@@ -118,7 +150,7 @@ class ClaudeService {
       3. Ask about window type
       4. Ask about glass type
       5. Finally, ask about special features
-      
+
       ## HANDLING MULTIPLE WINDOWS
       - After completing one quote, ask if they need quotes for additional windows
       - If they continue with another quote for the same location, don't ask for location again
@@ -162,9 +194,14 @@ class ClaudeService {
       try {
         // If this is a retry, log it
         if (retries > 0) {
-          console.log(`Claude API retry attempt ${retries}/${this.maxRetries}`);
+          logger.warn(`Claude API retry attempt ${retries}/${this.maxRetries}`, {
+            requestId,
+            retry_count: retries,
+            max_retries: this.maxRetries
+          });
         }
-        
+
+        const apiStartTime = Date.now();
         const response = await this.client.messages.create({
           model: "claude-3-haiku-20240307",
           max_tokens: 1000,
@@ -176,32 +213,105 @@ class ClaudeService {
             }
           ])
         });
+        const apiEndTime = Date.now();
+        const responseTime = apiEndTime - apiStartTime;
 
-        console.log('Claude response received:', response.content[0].text.substring(0, 50) + '...');
+        // Extract token usage from response if available
+        const tokenUsage = {
+          input: response.usage?.input_tokens || 0,
+          output: response.usage?.output_tokens || 0,
+          total: (response.usage?.input_tokens || 0) + (response.usage?.output_tokens || 0)
+        };
+
+        // Log response time and token usage
+        logger.info('Claude response received', {
+          requestId,
+          response_time_ms: responseTime,
+          tokens: tokenUsage
+        });
+
+        // Log full Claude response details
+        logger.logClaude({
+          type: 'response',
+          requestId,
+          user: phone,
+          timestamp: new Date().toISOString(),
+          response_time_ms: responseTime,
+          token_usage: tokenUsage,
+          model: "claude-3-haiku-20240307",
+          response_text: response.content[0].text,
+          summary: response.content[0].text.substring(0, 50) + '...'
+        });
+
         return response.content[0].text;
       } catch (error) {
         lastError = error;
-        console.error(`Claude API error (attempt ${retries + 1}/${this.maxRetries + 1}):`, error.message);
-        
+
+        // Log error with structured information
+        logger.error(`Claude API error (attempt ${retries + 1}/${this.maxRetries + 1})`, {
+          requestId,
+          error_message: error.message,
+          error_type: error.type || 'unknown',
+          error_status: error.status || 'unknown',
+          retry_count: retries,
+          max_retries: this.maxRetries
+        });
+
+        // Log Claude error with full details
+        logger.logClaude({
+          type: 'error',
+          requestId,
+          user: phone,
+          timestamp: new Date().toISOString(),
+          error_message: error.message,
+          error_type: error.type || 'unknown',
+          error_status: error.status || 'unknown',
+          retry_count: retries,
+          max_retries: this.maxRetries,
+          query: prompt.substring(0, 100) + (prompt.length > 100 ? '...' : ''),
+          summary: `Error: ${error.message}`
+        });
+
         // Determine if this error is worth retrying
         if (!this.isRetryableError(error) || retries >= this.maxRetries) {
           break;
         }
-        
+
         // Calculate delay using exponential backoff
         const delayMs = this.getBackoffDelay(retries);
-        console.log(`Retrying in ${delayMs}ms...`);
-        
+        logger.info(`Retrying in ${delayMs}ms...`, { requestId, delay_ms: delayMs });
+
         // Wait before retrying
         await this.sleep(delayMs);
-        
+
         // Increment retry counter
         retries++;
       }
     }
 
     // If we get here, all retries failed or error wasn't retryable
-    console.error('All Claude API retries failed or error not retryable:', lastError.message, lastError.stack);
+    const totalTime = Date.now() - startTime;
+
+    logger.error('All Claude API retries failed or error not retryable', {
+      requestId,
+      total_time_ms: totalTime,
+      error_message: lastError.message,
+      error_stack: lastError.stack,
+      retries_attempted: retries
+    });
+
+    // Log the final failure
+    logger.logClaude({
+      type: 'final_failure',
+      requestId,
+      user: phone,
+      timestamp: new Date().toISOString(),
+      total_time_ms: totalTime,
+      error_message: lastError.message,
+      retries_attempted: retries,
+      summary: `Failed after ${retries} retries: ${lastError.message}`
+    });
+
     return this.getFallbackMessage(lastError, retries);
   }
 }

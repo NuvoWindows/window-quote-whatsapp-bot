@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const config = require('./config/config');
 const whatsappRoutes = require('./routes/whatsappRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const logger = require('./utils/logger');
 
 const app = express();
 
@@ -12,6 +14,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api', whatsappRoutes);
+app.use('/admin', adminRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {
@@ -20,5 +23,6 @@ app.get('/health', (req, res) => {
 
 // Start server
 app.listen(config.port, () => {
-  console.log(`Server running on port ${config.port}`);
+  logger.info(`Server running on port ${config.port}`);
+  logger.info(`Admin interface available at /admin/conversations`);
 });
