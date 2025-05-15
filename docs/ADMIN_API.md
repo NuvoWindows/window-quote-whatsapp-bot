@@ -50,7 +50,7 @@ If no `ADMIN_TOKEN` is set, authentication is skipped (for development only).
 
 **Endpoint:** `GET /admin/conversations/:userId`
 
-**Description:** Returns detailed information about a specific conversation, including all messages and window specifications.
+**Description:** Returns detailed information about a specific conversation, including all messages and window specifications. For long conversations, the context may be summarized to manage token limits.
 
 **URL Parameters:**
 - `userId`: The WhatsApp phone number ID of the user

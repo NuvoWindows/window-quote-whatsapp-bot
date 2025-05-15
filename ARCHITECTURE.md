@@ -62,10 +62,18 @@ Claude 3 Haiku is used to generate conversational responses based on the user's 
 
 ### 4. Quote Calculation
 
-The application can calculate window installation quotes based on provided information.
+The application provides comprehensive window installation quotes based on detailed specifications.
 
 **Key Components:**
-- **Quote Service**: Calculates estimates based on window specifications
+- **Quote Service**: Advanced pricing model for accurate window quotes
+  - Base pricing tables by window operation type and square footage
+  - Operation-specific pricing for Hung, Slider, Fixed, Casement, and Awning windows
+  - Specialized pricing for shaped windows with arched tops
+  - Bay window pricing with header/footer and exterior siding options
+  - Support for optional features (Low-E glass, grilles, tinted/frosted glass)
+  - Quantity-based discount calculation
+  - Installation pricing based on window type and size
+- **Quote Detail Service**: Generates detailed HTML quotes for customers
 - **Message Parser**: Extracts window specifications from natural language input
 
 ### 5. Conversation Context Management
@@ -76,6 +84,8 @@ The application uses a persistent SQLite database to maintain conversation conte
 - **Conversation Manager**: Central service that handles conversation persistence and retrieval
 - **SQLite Database**: Stores conversations, messages, and structured window specifications
 - **Context Optimization**: Enhances conversations with previously extracted window specifications
+- **Context Summarization**: Intelligently summarizes long conversations to manage token limits
+- **Token Estimation**: Calculates and manages token usage for Claude API requests
 - **Window Specification Parser**: Extracts structured data from conversation messages
 - **Expiry Mechanism**: Automatically purges old conversations after 30 days
 
@@ -89,23 +99,35 @@ The application uses a persistent SQLite database to maintain conversation conte
    - User message is persisted to the database
    - Specification parser attempts to extract window details
    - Context is optimized with any previously stored specifications
-   - Claude generates a response based on the enhanced context
+   - Long conversations are summarized to stay within token limits
+   - Claude generates a response based on the enhanced and optimized context
    - Assistant response is persisted to the database
    - Response is sent back to the user via WhatsApp
 
 2. **Quote Generation Flow**:
    - User message contains window specifications
-   - Message parser extracts dimensions, window type, pane count, and options
-   - Quote service calculates an estimate
-   - Response includes the price range and installation cost
+   - Message parser extracts dimensions, window type, pane count, options, operation type, etc.
+   - Quote service calculates a detailed estimate based on comprehensive pricing variables
+   - For shaped windows, specialized pricing is applied based on diameter
+   - For bay windows, additional costs for header/footer and exterior siding are calculated
+   - Quantity discounts are applied for multiple windows
+   - Optional features (Low-E, grilles, frosted glass, etc.) are factored into pricing
+   - Quote detail service can generate an HTML breakdown of the quote
+   - Response includes detailed pricing information, installation cost, and a link to view the full quote
 
 ## API Endpoints
 
 ### WhatsApp API
 - `GET /api/webhook`: Webhook verification for WhatsApp API
 - `POST /api/webhook`: Webhook to receive WhatsApp messages
-- `POST /api/generate-quote`: Direct endpoint to generate a window installation quote
 - `GET /health`: Health check endpoint
+
+### Quote API
+- `POST /api/quotes/calculate`: Generate a simple quote from text message
+- `POST /api/quotes/detailed`: Generate a detailed quote with all options
+- `POST /api/quotes/from-conversation`: Generate a quote based on conversation messages
+- `GET /api/quotes/details`: Get a detailed quote as an HTML document
+- `GET /api/quotes/sample`: Get a sample quote for demonstration
 
 ### Admin API
 - `GET /admin/conversations`: List all active conversations
@@ -335,8 +357,16 @@ Potential areas for enhancement include:
 - Migration to a more robust database (PostgreSQL/MongoDB) for production scale
 - Webhook signature validation for enhanced security
 - Rate limiting and request throttling
-- Advanced context summarization algorithms
-- Unit and integration testing suite
+
+### Quote System Enhancements
+- Database-backed quote storage with unique quote IDs
+- Support for multi-window quotes in a single project
+- Quote status tracking (draft, sent, accepted, declined)
+- Enhanced quote documents with company branding
+- Email delivery of quote PDFs
+- Quote comparison and revision history
+- Further enhancements to context summarization algorithms
+- Expansion of unit and integration testing suite
 
 ### Functional Enhancements
 - User authentication for direct quote API access

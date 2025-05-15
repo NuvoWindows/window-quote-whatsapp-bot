@@ -7,6 +7,8 @@ const database = require('../utils/database');
 const logger = require('../utils/logger');
 const config = require('../config/config');
 const windowSpecParser = require('../utils/windowSpecParser');
+const contextSummarizer = require('../utils/contextSummarizer');
+const tokenEstimator = require('../utils/tokenEstimator');
 
 // Constants
 const DEFAULT_CONTEXT_LIMIT = 10; // Number of recent messages to include by default
@@ -166,20 +168,24 @@ class ConversationManager {
    * Get conversation context for Claude API
    * @param {string} userId - The user's WhatsApp ID
    * @param {number} limit - Maximum number of messages to include (default: DEFAULT_CONTEXT_LIMIT)
+   * @param {number} maxTokens - Maximum tokens to include in context (default: MAX_TOKEN_ESTIMATE)
    * @returns {Promise<Array>} - Array of message objects for Claude API
    */
-  async getConversationContext(userId, limit = DEFAULT_CONTEXT_LIMIT) {
+  async getConversationContext(userId, limit = DEFAULT_CONTEXT_LIMIT, maxTokens = MAX_TOKEN_ESTIMATE) {
     await this.ensureInitialized();
 
     const conversation = await this.getOrCreateConversation(userId);
 
     return new Promise((resolve, reject) => {
+      // Get more messages than the default limit to allow for summarization
+      const expandedLimit = Math.max(limit * 3, 30);
+      
       this.db.all(
         `SELECT * FROM messages
          WHERE conversation_id = ?
          ORDER BY timestamp DESC
          LIMIT ?`,
-        [conversation.id, limit],
+        [conversation.id, expandedLimit],
         async (err, messages) => {
           if (err) {
             logger.error(`Error getting messages for conversation ${conversation.id}: ${err.message}`);
@@ -202,11 +208,82 @@ class ConversationManager {
 
           // Add window specifications as context prefix if available
           const enhancedContext = await this.enhanceContextWithSpecifications(userId, formattedMessages);
-
-          resolve(enhancedContext);
+          
+          // Calculate token estimate for enhanced context
+          const tokenCount = tokenEstimator.estimateConversationTokens(enhancedContext);
+          
+          // Check if we need to optimize context for token limits
+          if (tokenCount > maxTokens) {
+            logger.info(`Context exceeds token limit (${tokenCount} > ${maxTokens}), applying summarization`, {
+              userId,
+              message_count: enhancedContext.length,
+              token_count: tokenCount,
+              token_limit: maxTokens
+            });
+            
+            // Get summarized context within token limits
+            const optimizedContext = await this.summarizeConversationContext(enhancedContext, maxTokens);
+            
+            logger.debug(`Optimized context from ${enhancedContext.length} to ${optimizedContext.length} messages`);
+            resolve(optimizedContext);
+          } else {
+            // Context is within token limits, return as is
+            logger.debug(`Context within token limits (${tokenCount} <= ${maxTokens})`);
+            resolve(enhancedContext);
+          }
         }
       );
     });
+  }
+  
+  /**
+   * Summarize conversation context to stay within token limits
+   * @param {Array} context - Full conversation context with messages
+   * @param {number} maxTokens - Maximum tokens for output context
+   * @returns {Array} - Summarized context within token limits
+   */
+  async summarizeConversationContext(context, maxTokens = MAX_TOKEN_ESTIMATE) {
+    try {
+      // First, check if there's window specifications in the context
+      const hasSpecsMessage = context.some(msg => 
+        msg.role === 'system' && msg.content.includes('Previous window specifications')
+      );
+      
+      // Separate system messages (specs) from regular conversation
+      const systemMessages = context.filter(msg => msg.role === 'system');
+      const conversationMessages = context.filter(msg => msg.role !== 'system');
+      
+      // Calculate tokens used by system messages
+      const systemTokens = tokenEstimator.estimateConversationTokens(systemMessages);
+      
+      // Remaining tokens for conversation content
+      const remainingTokens = maxTokens - systemTokens;
+      
+      // Optimize conversation messages to fit within remaining tokens
+      const optimizedConversation = contextSummarizer.optimizeContext(
+        conversationMessages,
+        remainingTokens
+      );
+      
+      // Combine system messages and optimized conversation
+      const optimizedContext = [...systemMessages, ...optimizedConversation];
+      
+      logger.info('Successfully summarized conversation context', {
+        original_length: context.length,
+        summarized_length: optimizedContext.length,
+        system_messages: systemMessages.length,
+        estimated_tokens: tokenEstimator.estimateConversationTokens(optimizedContext)
+      });
+      
+      return optimizedContext;
+    } catch (error) {
+      logger.error(`Error summarizing conversation context: ${error.message}`, {
+        error_stack: error.stack
+      });
+      
+      // Fallback to truncation if summarization fails
+      return context.slice(-DEFAULT_CONTEXT_LIMIT);
+    }
   }
 
   /**
@@ -246,7 +323,12 @@ class ConversationManager {
           ...messages
         ];
 
-        logger.debug('Enhanced context with window specifications', { userId, specs_count: specs.length });
+        logger.debug('Enhanced context with window specifications', {
+          userId,
+          specs_count: specs.length,
+          specs_summary: specSummary,
+          context_message_count: enhancedMessages.length
+        });
         return enhancedMessages;
       }
 

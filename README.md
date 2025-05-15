@@ -8,10 +8,11 @@ A WhatsApp bot that provides automated window installation price quotes through 
 - Conversational AI powered by Claude 3 Haiku
 - Persistent conversation context with 30-day retention
 - Intelligent extraction of window specifications
-- Automated window installation price quotes based on:
+- Advanced window installation price quotes based on:
   - Window dimensions (width × height)
+  - Window operation type (Hung, Slider, Fixed, Casement, Awning)
   - Window type (standard, bay, or shaped)
-  - Glass type (double or triple pane)
+  - Glass type (double or triple pane, clear, frosted, tinted)
   - Special features (grilles, low-E glass with argon, etc.)
 - Comprehensive logging and monitoring
 - Admin interface for conversation management
@@ -85,7 +86,13 @@ npm run dev
 ### WhatsApp API
 - `GET /api/webhook`: Webhook verification for WhatsApp API
 - `POST /api/webhook`: Webhook to receive WhatsApp messages
-- `POST /api/generate-quote`: Generate a window installation quote
+
+### Quote API
+- `POST /api/quotes/calculate`: Generate a simple quote from text message
+- `POST /api/quotes/detailed`: Generate a detailed quote with all options
+- `POST /api/quotes/from-conversation`: Generate a quote based on conversation messages
+- `GET /api/quotes/details`: Get a detailed quote as an HTML document
+- `GET /api/quotes/sample`: Get a sample quote for demonstration
 
 ### Admin API
 - `GET /admin/conversations`: List all active conversations
@@ -94,6 +101,7 @@ npm run dev
 - `POST /admin/expire-conversations`: Force expire old conversations
 
 See [ADMIN_API.md](docs/ADMIN_API.md) for detailed documentation on the admin API.
+See [QUOTE_API.md](docs/QUOTE_API.md) for detailed documentation on the quote API.
 
 ## Project Structure
 
@@ -138,6 +146,7 @@ The application follows a multi-environment deployment strategy:
 - For implementation roadmap, see [ROADMAP.md](ROADMAP.md)
 - For conversation context management, see [CONVERSATION_CONTEXT.md](docs/CONVERSATION_CONTEXT.md)
 - For admin API documentation, see [ADMIN_API.md](docs/ADMIN_API.md)
+- For quote API documentation, see [QUOTE_API.md](docs/QUOTE_API.md)
 - For auto-push functionality, see [AUTO-PUSH.md](AUTO-PUSH.md)
 
 ## License

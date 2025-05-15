@@ -16,8 +16,8 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 - [X] Fine-tune system prompt for quote gathering
 - [X] Test Claude response quality with various user inputs
 - [X] Adjust conversation flow based on testing results
-- [ ] Optimize system prompt to leverage structured window specification data
-- [ ] Enhance context handling for returning users
+- [X] Optimize system prompt to leverage structured window specification data
+- [X] Enhance context handling for returning users
 
 **Tasks:**
 1. ✅ Update `claudeService.js` to use production-ready prompt
@@ -27,12 +27,12 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 5. ✅ Implement SQLite database for conversation persistence
 6. ✅ Create window specification parser to extract structured data
 7. ✅ Add admin API for conversation management
-8. [ ] Optimize system prompt to use extracted window specifications
-9. [ ] Add instructions for handling returning users with existing quotes
-10. [ ] Implement context summarization for long conversations
-11. [ ] Write unit and integration tests for conversation manager
-12. [ ] Add tests for Claude service and retry mechanisms
-13. [ ] Create tests for the logging system
+8. ✅ Optimize system prompt to use extracted window specifications
+9. ✅ Add instructions for handling returning users with existing quotes
+10. ✅ Implement context summarization for long conversations
+11. ✅ Write unit and integration tests for conversation manager
+12. ✅ Add tests for Claude service and retry mechanisms
+13. ✅ Create tests for the logging system
 
 ## Phase 3: Quote Processing & Advanced Features
 *Estimated timeline: 2-3 weeks*
@@ -45,7 +45,7 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 
 **Tasks:**
 1. Expand `messageParser.js` with additional extraction patterns
-2. Enhance `quoteService.js` with more pricing variables
+2. ✅ Enhance `quoteService.js` with more pricing variables
 3. Add validation for dimensions and window types
 4. Implement error handling for edge cases
 
