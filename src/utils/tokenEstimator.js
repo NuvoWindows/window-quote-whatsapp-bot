@@ -31,7 +31,8 @@ function estimateTokens(text) {
  * @returns {number} - Estimated token count
  */
 function estimateMessageTokens(message) {
-  if (!message || !message.content) return 0;
+  if (!message || !message.role) return 0;
+  if (message.content === undefined || message.content === null) return 0;
   
   // Role adds a small overhead
   const roleOverhead = 3;

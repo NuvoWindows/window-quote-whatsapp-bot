@@ -35,8 +35,8 @@ describe('Token Estimator', () => {
       
       // Test with assistant message
       const assistantMessage = { role: 'assistant', content: 'I am fine, thank you!' };
-      // 20 chars / 4 = 5 tokens + 3 for role overhead = 8 tokens
-      expect(tokenEstimator.estimateMessageTokens(assistantMessage)).toBe(8);
+      // 21 chars / 4 = 5.25 => 6 tokens + 3 for role overhead = 9 tokens
+      expect(tokenEstimator.estimateMessageTokens(assistantMessage)).toBe(9);
       
       // Test with empty content
       expect(tokenEstimator.estimateMessageTokens({ role: 'user', content: '' })).toBe(3); // Just role overhead

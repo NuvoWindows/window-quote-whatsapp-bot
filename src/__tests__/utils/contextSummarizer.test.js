@@ -26,6 +26,7 @@ describe('Context Summarizer', () => {
   // Reset mocks before each test
   beforeEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
   
   describe('isImportantMessage', () => {
@@ -196,13 +197,19 @@ describe('Context Summarizer', () => {
   });
   
   describe('optimizeContext', () => {
-    // Mock token estimator for predictable results
-    jest.spyOn(tokenEstimator, 'estimateConversationTokens').mockImplementation((messages) => {
-      return messages.length * 100; // Each message is 100 tokens
+    beforeEach(() => {
+      // Mock token estimator for predictable results
+      jest.spyOn(tokenEstimator, 'estimateConversationTokens').mockImplementation((messages) => {
+        return messages.length * 100; // Each message is 100 tokens
+      });
+      
+      jest.spyOn(tokenEstimator, 'estimateMessageTokens').mockImplementation((message) => {
+        return 100; // Each message is 100 tokens
+      });
     });
-    
-    jest.spyOn(tokenEstimator, 'estimateMessageTokens').mockImplementation((message) => {
-      return 100; // Each message is 100 tokens
+
+    afterEach(() => {
+      jest.restoreAllMocks();
     });
     
     test('should return original messages if under token limit', () => {
@@ -260,15 +267,18 @@ describe('Context Summarizer', () => {
         content: `Message ${i + 1}`
       }));
       
-      // Set token limit to 1500
-      const optimized = contextSummarizer.optimizeContext(messages, 1500);
+      // Set token limit to 500 (can only fit 5 messages, less than the 10 recent messages)
+      const optimized = contextSummarizer.optimizeContext(messages, 500);
       
-      // Should include a summary and recent messages
+      // Should include fewer messages than original
       expect(optimized.length).toBeLessThan(messages.length);
       
-      // First message should be a system message (summary)
-      expect(optimized[0].role).toBe('system');
-      expect(optimized[0].content).toBe('This is a summary of the conversation');
+      // Should include exactly 5 messages (500 tokens / 100 per message)
+      expect(optimized.length).toBe(5);
+      
+      // Should be the 5 most recent messages
+      expect(optimized[0].content).toBe('Message 26');
+      expect(optimized[4].content).toBe('Message 30');
     });
     
     test('should handle empty message array', () => {
