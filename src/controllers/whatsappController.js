@@ -51,6 +51,10 @@ class WhatsAppController {
   }
   
   async handleMessage(req, res) {
+    // Initialize variables at the top level for error handling
+    let phone = 'unknown';
+    let name = 'there';
+    
     try {
 
       logger.info('WhatsApp webhook received', {
@@ -93,9 +97,6 @@ class WhatsAppController {
       const message = messageData.messages[0];
 
       // Get user info - with proper error handling for missing fields
-      let phone = 'unknown';
-      let name = 'there';
-
       try {
         if (messageData.contacts && messageData.contacts[0]) {
           phone = messageData.contacts[0].wa_id || 'unknown';
@@ -145,8 +146,7 @@ class WhatsAppController {
         const result = await this.conversationFlowService.processUserMessage(
           phone, 
           message.text.body,
-          {}, // extractedSpecs - could be enhanced with messageParser integration
-          { name } // additional context
+          {} // extractedSpecs - could be enhanced with messageParser integration
         );
 
         logger.info('ConversationFlowService result', {
