@@ -14,6 +14,31 @@ The bot implements a comprehensive error handling system that gracefully handles
 - Conversation disruptions
 - Complex measurement scenarios
 
+## Error Handling Architecture
+
+The error handling system is designed with multiple layers of protection:
+
+```
+User Message → WhatsApp Controller → Conversation Flow Service
+                    ↓                          ↓
+              Error Detection          Clarification Service
+                    ↓                          ↓
+              Error Context           Ambiguity Detection
+                    ↓                          ↓
+              Error Recovery          Question Generation
+                    ↓                          ↓
+              Error Monitoring        User Response
+                    ↓
+              User Notification
+```
+
+Each layer has specific responsibilities:
+- **Detection**: Identify when something goes wrong
+- **Context**: Preserve conversation state and user data
+- **Recovery**: Attempt to fix the issue automatically
+- **Monitoring**: Track patterns and alert on trends
+- **Communication**: Keep the user informed
+
 ## Error Handling Components
 
 ### 1. Conversation Flow Management
@@ -241,46 +266,47 @@ Would you like to:
 Reply with 1, 2, or 3.
 ```
 
-## Common Deployment Issues and Fixes
+## Best Practices for Error Handling
 
-### Variable Scope in Error Handlers
-**Issue**: Variables like `phone` and `name` undefined in error handlers
-**Fix**: Declare variables at function scope, not inside try blocks
+### 1. Always Preserve User Context
+When handling errors, maintain critical user information throughout the error chain:
 ```javascript
-async handleMessage(req, res) {
-  // Declare at function scope
-  let phone = 'unknown';
-  let name = 'there';
-  
-  try {
-    // ... rest of code
-  }
+const errorContext = await errorContextService.captureErrorContext(
+  userId,
+  error,
+  operation,
+  { additionalData: userSpecifications }
+);
+```
+
+### 2. Use Appropriate Recovery Strategies
+The system supports multiple recovery strategies. Choose based on the operation:
+- **RETRY**: For transient failures (API timeouts, rate limits)
+- **FALLBACK**: When primary service fails but alternatives exist
+- **USER_PROMPT**: When user input can resolve the issue
+- **ESCALATE**: For critical errors requiring human intervention
+
+### 3. Implement Graceful Degradation
+When features fail, provide reduced functionality rather than complete failure:
+```javascript
+// If professional measurement service fails, offer manual entry
+if (!measurementService.available()) {
+  return offerManualMeasurementOption();
 }
 ```
 
-### Method Parameter Mismatches
-**Issue**: Passing incorrect number of parameters to service methods
-**Fix**: Check method signatures and ensure correct parameter count
+### 4. Monitor Error Patterns
+Use the error monitoring service to track recurring issues:
 ```javascript
-// Wrong: 4 parameters
-await service.processUserMessage(phone, message, {}, { name });
-
-// Correct: 3 parameters
-await service.processUserMessage(phone, message, {});
+await errorMonitoringService.trackError(error, operation, userId);
+// Automatically detects patterns and alerts when thresholds are exceeded
 ```
 
-### Express Route Handler Context
-**Issue**: `this` context lost when passing class methods as route handlers
-**Fix**: Bind methods in constructor
-```javascript
-constructor() {
-  // ... initialize services
-  
-  // Bind methods to preserve context
-  this.handleMessage = this.handleMessage.bind(this);
-  this.verifyWebhook = this.verifyWebhook.bind(this);
-}
-```
+### 5. Provide Clear User Communication
+Always inform users about issues in a helpful, non-technical way:
+- Acknowledge the problem
+- Provide alternatives or next steps
+- Maintain conversation context for seamless recovery
 
 ## Monitoring and Debugging
 

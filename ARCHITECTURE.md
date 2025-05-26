@@ -48,6 +48,10 @@ The application integrates with WhatsApp Business API via Meta's Graph API to se
 
 **Key Components:**
 - **WhatsApp Service**: Handles message sending and marking messages as read
+- **WhatsApp Controller**: Manages webhook processing with message deduplication
+  - Implements message ID caching to prevent duplicate processing
+  - Maintains TTL-based cache with automatic cleanup
+  - Ensures each webhook is processed only once
 - **Webhook Verification**: Verifies the webhook with Meta's verification process
 - **Message Handling**: Processes incoming messages and crafts responses
 
