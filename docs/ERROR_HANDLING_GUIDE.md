@@ -241,6 +241,47 @@ Would you like to:
 Reply with 1, 2, or 3.
 ```
 
+## Common Deployment Issues and Fixes
+
+### Variable Scope in Error Handlers
+**Issue**: Variables like `phone` and `name` undefined in error handlers
+**Fix**: Declare variables at function scope, not inside try blocks
+```javascript
+async handleMessage(req, res) {
+  // Declare at function scope
+  let phone = 'unknown';
+  let name = 'there';
+  
+  try {
+    // ... rest of code
+  }
+}
+```
+
+### Method Parameter Mismatches
+**Issue**: Passing incorrect number of parameters to service methods
+**Fix**: Check method signatures and ensure correct parameter count
+```javascript
+// Wrong: 4 parameters
+await service.processUserMessage(phone, message, {}, { name });
+
+// Correct: 3 parameters
+await service.processUserMessage(phone, message, {});
+```
+
+### Express Route Handler Context
+**Issue**: `this` context lost when passing class methods as route handlers
+**Fix**: Bind methods in constructor
+```javascript
+constructor() {
+  // ... initialize services
+  
+  // Bind methods to preserve context
+  this.handleMessage = this.handleMessage.bind(this);
+  this.verifyWebhook = this.verifyWebhook.bind(this);
+}
+```
+
 ## Monitoring and Debugging
 
 ### Viewing Error Logs
