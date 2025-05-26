@@ -16,6 +16,10 @@ class WhatsAppController {
     this.conversationFlowService = new ConversationFlowService(conversationManager);
     this.errorContextService = new ErrorContextService();
     this.errorRecoveryService = new ErrorRecoveryService();
+    
+    // Bind methods to preserve 'this' context
+    this.handleMessage = this.handleMessage.bind(this);
+    this.verifyWebhook = this.verifyWebhook.bind(this);
   }
 
   async verifyWebhook(req, res) {
