@@ -13,7 +13,7 @@ const errorMonitoringService = require('../services/errorMonitoringService');
 class WhatsAppController {
   constructor() {
     // Initialize error handling services
-    this.conversationFlowService = new ConversationFlowService();
+    this.conversationFlowService = new ConversationFlowService(conversationManager);
     this.errorContextService = new ErrorContextService();
     this.errorRecoveryService = new ErrorRecoveryService();
   }
@@ -67,9 +67,25 @@ class WhatsAppController {
       const body = req.body;
 
       // Validate the incoming webhook
-      if (!body.object || !body.entry || !body.entry[0].changes || !body.entry[0].changes[0].value.messages) {
+      if (!body.object || !body.entry || !body.entry[0].changes) {
         logger.warn('Invalid webhook format received', { body });
         return res.sendStatus(400);
+      }
+
+      // Check if this is a status update
+      const changeValue = body.entry[0].changes[0].value;
+      if (changeValue.statuses && !changeValue.messages) {
+        logger.debug('Received status update', { 
+          status: changeValue.statuses[0].status,
+          messageId: changeValue.statuses[0].id 
+        });
+        return res.sendStatus(200);
+      }
+
+      // Check for messages
+      if (!changeValue.messages) {
+        logger.warn('No messages in webhook', { changeValue });
+        return res.sendStatus(200);
       }
       
       // Process the message
