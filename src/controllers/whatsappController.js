@@ -17,9 +17,25 @@ class WhatsAppController {
     this.errorContextService = new ErrorContextService();
     this.errorRecoveryService = new ErrorRecoveryService();
     
+    // Message deduplication cache (TTL: 1 hour)
+    this.processedMessages = new Map();
+    this.messageCacheTTL = 60 * 60 * 1000; // 1 hour
+    
     // Bind methods to preserve 'this' context
     this.handleMessage = this.handleMessage.bind(this);
     this.verifyWebhook = this.verifyWebhook.bind(this);
+    
+    // Clean up old messages periodically
+    setInterval(() => this.cleanupMessageCache(), 10 * 60 * 1000); // Every 10 minutes
+  }
+  
+  cleanupMessageCache() {
+    const now = Date.now();
+    for (const [messageId, timestamp] of this.processedMessages.entries()) {
+      if (now - timestamp > this.messageCacheTTL) {
+        this.processedMessages.delete(messageId);
+      }
+    }
   }
 
   async verifyWebhook(req, res) {
@@ -117,6 +133,18 @@ class WhatsAppController {
         user_name: name,
         content: message.type === 'text' ? message.text.body.substring(0, 50) + (message.text.body.length > 50 ? '...' : '') : '[NON-TEXT]'
       });
+      
+      // Check for duplicate message processing
+      if (this.processedMessages.has(message.id)) {
+        logger.info('Duplicate message detected, skipping processing', {
+          message_id: message.id,
+          user: phone
+        });
+        return res.sendStatus(200);
+      }
+      
+      // Mark message as being processed
+      this.processedMessages.set(message.id, Date.now());
 
       if (message.type !== 'text') {
         logger.info('Non-text message received, sending fallback response', {
