@@ -13,9 +13,9 @@ const errorMonitoringService = require('../services/errorMonitoringService');
 class WhatsAppController {
   constructor() {
     // Initialize error handling services
-    this.conversationFlowService = new ConversationFlowService(conversationManager);
     this.errorContextService = new ErrorContextService();
-    this.errorRecoveryService = new ErrorRecoveryService();
+    this.conversationFlowService = new ConversationFlowService(conversationManager);
+    this.errorRecoveryService = new ErrorRecoveryService(conversationManager, this.errorContextService);
     
     // Message deduplication cache (TTL: 1 hour)
     this.processedMessages = new Map();
