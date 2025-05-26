@@ -149,6 +149,13 @@ class ClaudeService {
       - Glass type (Double or Triple pane) - Note: We do NOT offer single pane
       - Special features (Grilles and/or Low-E glass with argon)
       - Window location in the home (e.g., kitchen, bedroom, living room)
+      
+      ## SHAPED WINDOWS - IMPORTANT
+      For shaped windows (those with arched or custom tops):
+      - Ask for the rectangular portion dimensions ONLY (width × height in inches)
+      - The height should be measured to where the arch begins, NOT including the arch
+      - The arch price is automatically calculated based on the window width
+      - Clarify: "Please measure the rectangular part only, not including the arch"
 
       ## INFORMATION GATHERING SEQUENCE
       1. Start by asking about window location in the home
@@ -189,7 +196,7 @@ class ClaudeService {
       - Window pricing is primarily based on size, operation type, and glass options
       - Operation types include: Fixed, Hung, Slider, Casement, and Awning
       - Pricing is based on square footage with specific prices for each operation type
-      - Shaped windows have a rectangular bottom section plus an arched top section with diameter-based pricing
+      - Shaped windows are priced as the rectangular section (based on dimensions) plus an arch surcharge (based on width only)
       - Bay windows include additional costs for header/footer and optional exterior siding
       - Triple pane glass costs more than double pane (about $11 per sq ft additional)
       - Optional features like Low-E glass with argon ($110 per window) or grilles ($5 per sq ft) increase the price

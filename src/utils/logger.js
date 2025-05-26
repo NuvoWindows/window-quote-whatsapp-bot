@@ -294,6 +294,111 @@ async function filterClaudeLogs(criteria = {}) {
   }
 }
 
+/**
+ * Categorize an error based on its message and stack trace
+ * @param {Error} error - The error to categorize
+ * @returns {string} - Error category
+ */
+function categorizeError(error) {
+  const errorCategories = {
+    VALIDATION: ['invalid input', 'validation failed', 'required field', 'not a valid'],
+    PARSING: ['parse error', 'cannot process', 'invalid format', 'syntax error'],
+    CLAUDE_API: ['claude api', 'anthropic', 'llm', 'completion failed', 'context length', 'rate limit'],
+    WHATSAPP_API: ['whatsapp', 'message delivery', 'send failed', 'recipient'],
+    DATABASE: ['database', 'query failed', 'connection', 'timeout', 'sql', 'db error'],
+    CONVERSATION: ['context', 'specification', 'conversation state', 'message history'],
+    SYSTEM: ['system', 'memory', 'crash', 'unexpected', 'internal error']
+  };
+  
+  const errorString = `${error.message} ${error.stack || ''}`.toLowerCase();
+  
+  for (const [category, patterns] of Object.entries(errorCategories)) {
+    if (patterns.some(pattern => errorString.includes(pattern))) {
+      return category;
+    }
+  }
+  
+  return 'UNKNOWN';
+}
+
+/**
+ * Get appropriate log level for an error category
+ * @param {string} category - Error category
+ * @returns {string} - Log level
+ */
+function getCategoryLogLevel(category) {
+  const levelMap = {
+    VALIDATION: 'warn',
+    PARSING: 'warn',
+    CLAUDE_API: 'error',
+    WHATSAPP_API: 'error',
+    DATABASE: 'error',
+    CONVERSATION: 'warn',
+    SYSTEM: 'error'
+  };
+  
+  return levelMap[category] || 'error';
+}
+
+/**
+ * Generate a unique error ID
+ * @returns {string} - Unique error ID
+ */
+function generateErrorId() {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substr(2, 5);
+  return `ERR-${timestamp}-${random}`;
+}
+
+/**
+ * Log an error with rich context and categorization
+ * @param {Error} error - The error object
+ * @param {Object} context - Additional context about the error
+ * @returns {Object} - Error metadata including ID and category
+ */
+function logError(error, context = {}) {
+  try {
+    // Categorize the error
+    const category = categorizeError(error);
+    const errorId = generateErrorId();
+    
+    // Create enriched error context
+    const enrichedContext = {
+      errorId,
+      errorType: error.constructor.name,
+      errorCategory: category,
+      stackTrace: error.stack,
+      timestamp: new Date().toISOString(),
+      ...context
+    };
+    
+    // Use appropriate log level based on error category
+    const level = getCategoryLogLevel(category);
+    
+    // Log using the standard logging function
+    log(level, `[${category}] ${error.message}`, enrichedContext);
+    
+    // Write to error-specific log file
+    if (config.LOG_TO_FILE) {
+      writeToLogFile('errors.log', JSON.stringify({
+        timestamp: new Date().toISOString(),
+        errorId,
+        category,
+        message: error.message,
+        ...enrichedContext
+      }));
+    }
+    
+    // Return error metadata for reference
+    return { errorId, category };
+  } catch (loggingError) {
+    // Fallback if error logging itself fails
+    console.error('Failed to log error:', loggingError);
+    console.error('Original error:', error);
+    return { errorId: 'ERROR_LOGGING_FAILED', category: 'SYSTEM' };
+  }
+}
+
 // Export public methods
 module.exports = {
   // Standard logging functions
@@ -301,6 +406,9 @@ module.exports = {
   info: (message, meta = {}) => log('info', message, meta),
   warn: (message, meta = {}) => log('warn', message, meta),
   error: (message, meta = {}) => log('error', message, meta),
+  
+  // Enhanced error logging
+  logError,
   
   // Claude-specific logging
   logClaude,

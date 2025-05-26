@@ -5,6 +5,7 @@ const config = require('./config/config');
 const whatsappRoutes = require('./routes/whatsappRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const quoteRoutes = require('./routes/quoteRoutes');
+const quoteManagementRoutes = require('./routes/quoteManagementRoutes');
 const logger = require('./utils/logger');
 
 const app = express();
@@ -21,6 +22,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use('/api', whatsappRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api/quotes', quoteRoutes);
+app.use('/api/quote-management', quoteManagementRoutes);
 
 // Health check route
 app.get('/health', (req, res) => {

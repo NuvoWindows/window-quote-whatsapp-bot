@@ -558,6 +558,327 @@ class ConversationManager {
   }
 
   /**
+   * Save partial window specifications for a user
+   * @param {string} userId - The user's WhatsApp ID
+   * @param {Object} specs - Partial window specifications
+   * @returns {Promise<void>}
+   */
+  async savePartialSpecification(userId, specs) {
+    await this.ensureInitialized();
+    
+    const conversation = await this.getOrCreateConversation(userId);
+    const now = new Date().toISOString();
+    
+    return new Promise((resolve, reject) => {
+      // Store partial specs in the metadata field of the conversation
+      this.db.get(
+        'SELECT metadata FROM conversations WHERE id = ?',
+        [conversation.id],
+        (err, row) => {
+          if (err) {
+            logger.error(`Error getting conversation metadata: ${err.message}`);
+            reject(err);
+            return;
+          }
+          
+          let metadata = {};
+          try {
+            metadata = JSON.parse(row.metadata || '{}');
+          } catch (parseErr) {
+            logger.warn('Failed to parse conversation metadata, using empty object');
+            metadata = {};
+          }
+          
+          // Update partial specifications
+          metadata.partialSpecs = specs;
+          metadata.partialSpecsUpdated = now;
+          
+          this.db.run(
+            'UPDATE conversations SET metadata = ?, last_active = ? WHERE id = ?',
+            [JSON.stringify(metadata), now, conversation.id],
+            (updateErr) => {
+              if (updateErr) {
+                logger.error(`Error saving partial specifications: ${updateErr.message}`);
+                reject(updateErr);
+                return;
+              }
+              
+              logger.debug('Saved partial specifications', {
+                userId,
+                fieldsCount: Object.keys(specs).length
+              });
+              
+              resolve();
+            }
+          );
+        }
+      );
+    });
+  }
+  
+  /**
+   * Get partial window specifications for a user
+   * @param {string} userId - The user's WhatsApp ID
+   * @returns {Promise<Object|null>} - Partial specifications or null if none exist
+   */
+  async getPartialSpecification(userId) {
+    await this.ensureInitialized();
+    
+    const conversation = await this.getOrCreateConversation(userId);
+    
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT metadata FROM conversations WHERE id = ?',
+        [conversation.id],
+        (err, row) => {
+          if (err) {
+            logger.error(`Error getting partial specifications: ${err.message}`);
+            reject(err);
+            return;
+          }
+          
+          if (!row || !row.metadata) {
+            resolve(null);
+            return;
+          }
+          
+          try {
+            const metadata = JSON.parse(row.metadata);
+            resolve(metadata.partialSpecs || null);
+          } catch (parseErr) {
+            logger.warn('Failed to parse conversation metadata for partial specs');
+            resolve(null);
+          }
+        }
+      );
+    });
+  }
+  
+  /**
+   * Clear partial specifications for a user
+   * @param {string} userId - The user's WhatsApp ID
+   * @returns {Promise<void>}
+   */
+  async clearPartialSpecification(userId) {
+    await this.ensureInitialized();
+    
+    const conversation = await this.getOrCreateConversation(userId);
+    
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT metadata FROM conversations WHERE id = ?',
+        [conversation.id],
+        (err, row) => {
+          if (err) {
+            logger.error(`Error getting conversation metadata: ${err.message}`);
+            reject(err);
+            return;
+          }
+          
+          let metadata = {};
+          try {
+            metadata = JSON.parse(row.metadata || '{}');
+          } catch (parseErr) {
+            metadata = {};
+          }
+          
+          // Remove partial specs
+          delete metadata.partialSpecs;
+          delete metadata.partialSpecsUpdated;
+          
+          this.db.run(
+            'UPDATE conversations SET metadata = ? WHERE id = ?',
+            [JSON.stringify(metadata), conversation.id],
+            (updateErr) => {
+              if (updateErr) {
+                logger.error(`Error clearing partial specifications: ${updateErr.message}`);
+                reject(updateErr);
+                return;
+              }
+              
+              logger.debug('Cleared partial specifications', { userId });
+              resolve();
+            }
+          );
+        }
+      );
+    });
+  }
+  
+  /**
+   * Set a context flag for a user's conversation
+   * @param {string} userId - The user's WhatsApp ID
+   * @param {string} flagName - Name of the flag
+   * @param {any} flagValue - Value of the flag
+   * @returns {Promise<void>}
+   */
+  async setContextFlag(userId, flagName, flagValue) {
+    await this.ensureInitialized();
+    
+    const conversation = await this.getOrCreateConversation(userId);
+    
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT metadata FROM conversations WHERE id = ?',
+        [conversation.id],
+        (err, row) => {
+          if (err) {
+            logger.error(`Error getting conversation metadata: ${err.message}`);
+            reject(err);
+            return;
+          }
+          
+          let metadata = {};
+          try {
+            metadata = JSON.parse(row.metadata || '{}');
+          } catch (parseErr) {
+            metadata = {};
+          }
+          
+          // Ensure contextFlags object exists
+          if (!metadata.contextFlags) {
+            metadata.contextFlags = {};
+          }
+          
+          // Set the flag
+          metadata.contextFlags[flagName] = flagValue;
+          
+          this.db.run(
+            'UPDATE conversations SET metadata = ? WHERE id = ?',
+            [JSON.stringify(metadata), conversation.id],
+            (updateErr) => {
+              if (updateErr) {
+                logger.error(`Error setting context flag: ${updateErr.message}`);
+                reject(updateErr);
+                return;
+              }
+              
+              logger.debug('Set context flag', { userId, flagName, flagValue });
+              resolve();
+            }
+          );
+        }
+      );
+    });
+  }
+  
+  /**
+   * Get the last activity time for a user
+   * @param {string} userId - The user's WhatsApp ID
+   * @returns {Promise<Date|null>} - Last activity time or null if no conversation
+   */
+  async getLastActivityTime(userId) {
+    await this.ensureInitialized();
+    
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT last_active FROM conversations WHERE user_id = ?',
+        [userId],
+        (err, row) => {
+          if (err) {
+            logger.error(`Error getting last activity time: ${err.message}`);
+            reject(err);
+            return;
+          }
+          
+          if (!row) {
+            resolve(null);
+            return;
+          }
+          
+          resolve(new Date(row.last_active));
+        }
+      );
+    });
+  }
+  
+  /**
+   * Update the last activity time for a user
+   * @param {string} userId - The user's WhatsApp ID
+   * @returns {Promise<void>}
+   */
+  async updateLastActivity(userId) {
+    await this.ensureInitialized();
+    
+    const conversation = await this.getOrCreateConversation(userId);
+    const now = new Date().toISOString();
+    
+    return new Promise((resolve, reject) => {
+      this.db.run(
+        'UPDATE conversations SET last_active = ? WHERE id = ?',
+        [now, conversation.id],
+        (err) => {
+          if (err) {
+            logger.error(`Error updating last activity: ${err.message}`);
+            reject(err);
+            return;
+          }
+          
+          logger.debug('Updated last activity', { userId });
+          resolve();
+        }
+      );
+    });
+  }
+  
+  /**
+   * Set conversation context data
+   * @param {string} userId - The user's WhatsApp ID
+   * @param {string} key - Context key
+   * @param {any} value - Context value
+   * @returns {Promise<void>}
+   */
+  async setConversationContext(userId, key, value) {
+    await this.ensureInitialized();
+    
+    const conversation = await this.getOrCreateConversation(userId);
+    
+    return new Promise((resolve, reject) => {
+      this.db.get(
+        'SELECT metadata FROM conversations WHERE id = ?',
+        [conversation.id],
+        (err, row) => {
+          if (err) {
+            logger.error(`Error getting conversation metadata: ${err.message}`);
+            reject(err);
+            return;
+          }
+          
+          let metadata = {};
+          try {
+            metadata = JSON.parse(row.metadata || '{}');
+          } catch (parseErr) {
+            metadata = {};
+          }
+          
+          // Ensure context object exists
+          if (!metadata.context) {
+            metadata.context = {};
+          }
+          
+          // Set the context value
+          metadata.context[key] = value;
+          
+          this.db.run(
+            'UPDATE conversations SET metadata = ? WHERE id = ?',
+            [JSON.stringify(metadata), conversation.id],
+            (updateErr) => {
+              if (updateErr) {
+                logger.error(`Error setting conversation context: ${updateErr.message}`);
+                reject(updateErr);
+                return;
+              }
+              
+              logger.debug('Set conversation context', { userId, key });
+              resolve();
+            }
+          );
+        }
+      );
+    });
+  }
+
+  /**
    * Close the database connection
    * @returns {Promise<void>}
    */

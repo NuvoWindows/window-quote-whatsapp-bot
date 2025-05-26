@@ -8,6 +8,7 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('./logger');
 const config = require('../config/config');
+const quoteSchema = require('../db/quote_schema');
 
 // Database configuration
 const dbConfig = {
@@ -28,7 +29,7 @@ if (!fs.existsSync(dataDir)) {
 }
 
 // Database schema
-const SCHEMA = `
+const BASE_SCHEMA = `
 -- Conversations table
 CREATE TABLE IF NOT EXISTS conversations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -70,6 +71,9 @@ CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations (user_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages (conversation_id);
 CREATE INDEX IF NOT EXISTS idx_window_specs_conversation_id ON window_specifications (conversation_id);
 `;
+
+// Combine the base schema with the quote schema
+const SCHEMA = BASE_SCHEMA + quoteSchema;
 
 /**
  * Initialize the database schema

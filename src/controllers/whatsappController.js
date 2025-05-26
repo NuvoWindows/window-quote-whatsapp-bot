@@ -4,7 +4,20 @@ const messageParser = require('../utils/messageParser');
 const logger = require('../utils/logger');
 const conversationManager = require('../services/conversationManager');
 
+// Error handling components
+const ConversationFlowService = require('../services/conversationFlowService');
+const ErrorContextService = require('../services/errorContextService');
+const ErrorRecoveryService = require('../services/errorRecoveryService');
+const errorMonitoringService = require('../services/errorMonitoringService');
+
 class WhatsAppController {
+  constructor() {
+    // Initialize error handling services
+    this.conversationFlowService = new ConversationFlowService();
+    this.errorContextService = new ErrorContextService();
+    this.errorRecoveryService = new ErrorRecoveryService();
+  }
+
   async verifyWebhook(req, res) {
 
     logger.info('Webhook verification request received', {
@@ -99,7 +112,6 @@ class WhatsAppController {
       
       // Respond to the message
       try {
-
         // Mark the message as read
         await whatsappService.markMessageAsRead(message.id);
         logger.debug('Message marked as read', { message_id: message.id });
@@ -111,90 +123,153 @@ class WhatsAppController {
           return res.sendStatus(200);
         }
 
-        // Get conversation context from persistent storage
-        logger.info('Getting conversation context', { user: phone, user_name: name });
-
-        // First, check if this is a new conversation that needs a welcome message
-        const existingMessages = await conversationManager.getConversationContext(phone, 1);
-        if (existingMessages.length === 0) {
-          // This is a new conversation, add a welcome message
-          logger.info('Adding welcome message for new conversation', { user: phone });
-          await conversationManager.addMessage(
-            phone,
-            'assistant',
-            `Hi ${name}! I'm your window quote assistant. How can I help you today?`
-          );
-        }
-
-        // Save the user's message to the conversation
-        await conversationManager.addMessage(phone, 'user', message.text.body);
-
-        // Get the updated conversation context
-        const conversationContext = await conversationManager.getConversationContext(phone);
-
-        logger.debug('Conversation context status', {
-          user: phone,
-          context_messages: conversationContext.length
-        });
-
-        // Generate response using Claude
-        logger.info('Calling Claude API', {
-          user: phone,
-          message_length: message.text.body.length
-        });
-
-        const response = await claudeService.generateResponse(
+        // Use ConversationFlowService to process the message with comprehensive error handling
+        logger.info('Processing message with ConversationFlowService', { user: phone, user_name: name });
+        
+        const result = await this.conversationFlowService.processUserMessage(
+          phone, 
           message.text.body,
-          conversationContext, // Use all messages from conversation manager
-          { phone, name } // Pass user information for detailed logging
+          {}, // extractedSpecs - could be enhanced with messageParser integration
+          { name } // additional context
         );
 
-        logger.info('Claude response received', {
+        logger.info('ConversationFlowService result', {
           user: phone,
-          response_length: response.length
+          result_type: result.type,
+          has_response: !!result.response,
+          has_clarification: !!result.clarificationRequest
         });
 
-        // Save Claude's response to conversation
-        await conversationManager.addMessage(phone, 'assistant', response);
+        // Handle different response types
+        let responseText;
+        
+        if (result.type === 'clarification_needed') {
+          responseText = result.clarificationRequest;
+          logger.debug('Sending clarification request', { user: phone });
+        } else if (result.type === 'error_recovery') {
+          responseText = result.response;
+          logger.debug('Sending error recovery response', { user: phone });
+        } else if (result.type === 'success') {
+          responseText = result.response;
+          logger.debug('Sending successful response', { user: phone });
+        } else {
+          // Fallback to standard Claude response for unhandled cases
+          logger.info('Falling back to standard Claude response', { user: phone });
+          
+          // First, check if this is a new conversation that needs a welcome message
+          const existingMessages = await conversationManager.getConversationContext(phone, 1);
+          if (existingMessages.length === 0) {
+            logger.info('Adding welcome message for new conversation', { user: phone });
+            await conversationManager.addMessage(
+              phone,
+              'assistant',
+              `Hi ${name}! I'm your window quote assistant. How can I help you today?`
+            );
+          }
+
+          // Save the user's message to the conversation
+          await conversationManager.addMessage(phone, 'user', message.text.body);
+
+          // Get conversation context and generate response
+          const conversationContext = await conversationManager.getConversationContext(phone);
+          responseText = await claudeService.generateResponse(
+            message.text.body,
+            conversationContext,
+            { phone, name }
+          );
+
+          // Save Claude's response to conversation
+          await conversationManager.addMessage(phone, 'assistant', responseText);
+        }
 
         // Send response to user
-        logger.info('Sending response to WhatsApp', { user: phone });
-        const result = await whatsappService.sendMessage(phone, response);
-        logger.debug('WhatsApp send result', { user: phone, result });
+        logger.info('Sending response to WhatsApp', { user: phone, response_length: responseText.length });
+        await whatsappService.sendMessage(phone, responseText);
         
         return res.sendStatus(200);
+        
       } catch (innerError) {
-        // Try to send an error message to the user
+        // Use comprehensive error handling system
+        const operation = 'whatsapp_message_processing';
+        
         try {
-          // Log the error using the logger
-          logger.error('WhatsApp message processing error', {
-            error: innerError.message,
-            stack: innerError.stack,
-            user: phone,
-            user_name: name
-          });
-
-          await whatsappService.sendMessage(phone,
-            "I'm sorry, I encountered an error processing your request. Our team has been notified."
+          // Capture comprehensive error context
+          const errorContext = await this.errorContextService.captureErrorContext(
+            phone, 
+            innerError, 
+            operation
           );
-        } catch (sendError) {
-          logger.error('Failed to send error message to user', {
+
+          // Track the error for monitoring
+          await errorMonitoringService.trackError(innerError, operation, phone);
+
+          // Attempt error recovery
+          const recoveryResult = await this.errorRecoveryService.handleError(
+            phone, 
+            innerError, 
+            operation, 
+            errorContext
+          );
+
+          if (recoveryResult.success && recoveryResult.userMessage) {
+            // Send recovery message to user
+            await whatsappService.sendMessage(phone, recoveryResult.userMessage);
+            logger.info('Error recovery successful', { 
+              user: phone, 
+              recovery_strategy: recoveryResult.strategy 
+            });
+          } else {
+            // Recovery failed, send generic error message
+            await whatsappService.sendMessage(phone,
+              "I'm sorry, I encountered an error processing your request. Our team has been notified."
+            );
+            logger.error('Error recovery failed', { 
+              user: phone, 
+              error: innerError.message,
+              recovery_attempted: recoveryResult.strategy 
+            });
+          }
+
+        } catch (errorHandlingError) {
+          // Final fallback if even our error handling fails
+          logger.error('Error handling system failed', {
             original_error: innerError.message,
-            send_error: sendError.message,
+            error_handling_error: errorHandlingError.message,
             user: phone
           });
+
+          try {
+            await whatsappService.sendMessage(phone,
+              "I'm experiencing technical difficulties. Please try again in a moment."
+            );
+          } catch (sendError) {
+            logger.error('Failed to send final fallback message', {
+              user: phone,
+              send_error: sendError.message
+            });
+          }
         }
         
         return res.sendStatus(500);
       }
     } catch (error) {
-      // Log the error with structured logging
+      // Log the error with structured logging and track for monitoring
       logger.error('WhatsApp webhook handling error', {
         error: error.message,
         stack: error.stack,
         path: req.path,
         method: req.method
       });
+
+      // Track webhook-level errors for monitoring
+      try {
+        await errorMonitoringService.trackError(error, 'whatsapp_webhook', 'system');
+      } catch (monitoringError) {
+        logger.error('Failed to track webhook error', { 
+          original_error: error.message,
+          monitoring_error: monitoringError.message 
+        });
+      }
 
       return res.sendStatus(500);
     }
