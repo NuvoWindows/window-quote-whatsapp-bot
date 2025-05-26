@@ -14,8 +14,24 @@ A WhatsApp bot that provides automated window installation price quotes through 
   - Window type (standard, bay, or shaped)
   - Glass type (double or triple pane, clear, frosted, tinted)
   - Special features (grilles, low-E glass with argon, etc.)
-- Comprehensive logging and monitoring
+- Database-backed multi-window quote system with:
+  - Support for multiple windows in a single quote
+  - Quote status tracking (draft, complete, revision)
+  - Persistent storage with SQLite
+  - Detailed HTML quote generation
+  - Quote history and versioning
+- Comprehensive logging and monitoring with:
+  - Error pattern detection and alerting
+  - Performance metrics tracking
+  - Conversation health monitoring
 - Admin interface for conversation management
+- Robust error handling with:
+  - Automatic retry mechanisms with exponential backoff
+  - Intelligent clarification for ambiguous specifications
+  - Context-aware error recovery strategies
+  - Professional measurement service integration
+  - Conversation resumption capabilities
+  - Measurement deferral support
 
 ## Installation
 
@@ -79,6 +95,15 @@ npm start
 
 # For development with auto-restart
 npm run dev
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run linter
+npm run lint
 ```
 
 ## API Endpoints
@@ -94,6 +119,20 @@ npm run dev
 - `GET /api/quotes/details`: Get a detailed quote as an HTML document
 - `GET /api/quotes/sample`: Get a sample quote for demonstration
 
+### Quote Management API
+- `POST /api/quote-management/quotes`: Create a new quote
+- `GET /api/quote-management/quotes/:id`: Get a quote by ID
+- `PUT /api/quote-management/quotes/:id`: Update a quote
+- `DELETE /api/quote-management/quotes/:id`: Delete a quote
+- `GET /api/quote-management/quotes`: Get recent quotes
+- `POST /api/quote-management/quotes/:id/windows`: Add a window to a quote
+- `PUT /api/quote-management/windows/:windowId`: Update a window
+- `DELETE /api/quote-management/windows/:windowId`: Remove a window
+- `POST /api/quote-management/quotes/:id/complete`: Complete a quote
+- `GET /api/quote-management/quotes/:id/file`: Generate and get the quote file
+- `GET /api/quote-management/quotes/customer/:customerId`: Get quotes by customer
+- `POST /api/quote-management/quotes/from-conversation/:conversationId`: Create quote from conversation
+
 ### Admin API
 - `GET /admin/conversations`: List all active conversations
 - `GET /admin/conversations/:userId`: Get details for a specific conversation
@@ -102,6 +141,7 @@ npm run dev
 
 See [ADMIN_API.md](docs/ADMIN_API.md) for detailed documentation on the admin API.
 See [QUOTE_API.md](docs/QUOTE_API.md) for detailed documentation on the quote API.
+See [QUOTE_MANAGEMENT_API.md](docs/QUOTE_MANAGEMENT_API.md) for detailed documentation on the quote management API.
 
 ## Project Structure
 
@@ -109,21 +149,50 @@ See [QUOTE_API.md](docs/QUOTE_API.md) for detailed documentation on the quote AP
 src/
 ├── config/         # Configuration settings
 ├── controllers/    # Route controllers
-├── routes/         # API routes (WhatsApp and Admin)
+│   ├── quoteController.js           # Quote generation controller
+│   ├── quoteManagementController.js # Multi-window quote management controller
+│   └── whatsappController.js        # WhatsApp webhook controller
+├── db/             # Database schemas
+│   └── quote_schema.js              # Multi-window quote database schema
+├── models/         # Database models
+│   └── quoteModel.js                # Quote database operations
+├── routes/         # API routes
+│   ├── adminRoutes.js               # Admin API routes
+│   ├── quoteManagementRoutes.js     # Multi-window quote management routes
+│   ├── quoteRoutes.js               # Quote generation routes
+│   └── whatsappRoutes.js            # WhatsApp webhook routes
 ├── services/       # Business logic
-│   ├── claudeService.js          # Claude AI integration
-│   ├── conversationManager.js    # Conversation persistence
-│   ├── quoteService.js           # Window quote calculation
-│   └── whatsappService.js        # WhatsApp messaging
+│   ├── clarificationService.js      # Ambiguity clarification
+│   ├── claudeService.js             # Claude AI integration
+│   ├── conversationFlowService.js   # Conversation flow management
+│   ├── conversationManager.js       # Conversation persistence
+│   ├── errorContextService.js       # Error context preservation
+│   ├── errorMonitoringService.js    # Error pattern monitoring & alerting
+│   ├── errorRecoveryService.js      # Error recovery strategies
+│   ├── measurementDeferralService.js # Measurement deferral handling
+│   ├── multiWindowQuoteService.js   # Multi-window quote management
+│   ├── professionalMeasurementService.js # Professional measurement recommendations
+│   ├── quoteDetailService.js        # Quote HTML generation
+│   ├── quoteService.js              # Quote calculation logic
+│   └── whatsappService.js           # WhatsApp API integration
 └── utils/          # Utility functions
-    ├── database.js               # SQLite database management
-    ├── logger.js                 # Structured logging
-    ├── messageParser.js          # WhatsApp message parsing
-    └── windowSpecParser.js       # Window specification extraction
+    ├── ambiguityDetector.js         # Ambiguous term detection
+    ├── contextSummarizer.js         # Conversation context summarization
+    ├── database.js                  # SQLite database management
+    ├── logger.js                    # Enhanced structured logging with error tracking
+    ├── messageParser.js             # WhatsApp message parsing
+    ├── questionGenerator.js         # Dynamic question generation
+    ├── retryUtil.js                 # Centralized retry mechanism with exponential backoff
+    ├── sharedExtractors.js         # Common extraction logic
+    ├── specificationValidator.js    # Specification validation
+    ├── tokenEstimator.js            # Claude API token estimation
+    ├── windowSpecParser.js          # Window specification extraction
+    └── windowValidator.js          # Window dimension validation
 
 data/               # Database storage (Git-ignored)
 logs/               # Log files (Git-ignored)
 docs/               # Documentation
+public/quotes/      # Generated quote HTML files
 ```
 
 ## Deployment
@@ -147,6 +216,11 @@ The application follows a multi-environment deployment strategy:
 - For conversation context management, see [CONVERSATION_CONTEXT.md](docs/CONVERSATION_CONTEXT.md)
 - For admin API documentation, see [ADMIN_API.md](docs/ADMIN_API.md)
 - For quote API documentation, see [QUOTE_API.md](docs/QUOTE_API.md)
+- For quote management API documentation, see [QUOTE_MANAGEMENT_API.md](docs/QUOTE_MANAGEMENT_API.md)
+- For error handling guide, see [ERROR_HANDLING_GUIDE.md](docs/ERROR_HANDLING_GUIDE.md)
+- For parser implementation details, see [PARSERS.md](docs/PARSERS.md)
+- For parser refactoring guide, see [PARSER_REFACTORING.md](docs/PARSER_REFACTORING.md)
+- For testing strategy, see [TEST_STRATEGY.md](docs/TEST_STRATEGY.md)
 - For auto-push functionality, see [AUTO-PUSH.md](AUTO-PUSH.md)
 
 ## License

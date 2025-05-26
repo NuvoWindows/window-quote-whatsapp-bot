@@ -1,5 +1,8 @@
 # Testing Strategy
 
+**Last Updated:** May 25, 2025  
+**Version:** 1.2.0
+
 This document outlines the testing approach for the Window Quote WhatsApp Bot, describing the testing framework, test structure, and guidelines for creating effective tests.
 
 ## Testing Objectives
@@ -110,7 +113,60 @@ describe('Component Name', () => {
 
 ## Key Components to Test
 
-### 1. Conversation Manager
+### 1. Shared Extractors (NEW)
+
+Test coverage should include:
+- Common extraction methods used by all parsers
+- Unit conversion logic
+- Pattern matching accuracy
+- Edge cases for each extractor
+- Consistency across different input formats
+
+**Testing Approach**:
+```javascript
+describe('sharedExtractors', () => {
+  test('should extract dimensions with unit conversion', () => {
+    expect(sharedExtractors.extractDimensions('36cm x 48cm'))
+      .toEqual({ width: 14.2, height: 18.9, originalUnits: 'cm' });
+  });
+});
+```
+
+### 2. Window Validator (NEW)
+
+Test coverage should include:
+- Dimension range validation (min/max limits)
+- Unit conversion validation
+- Error message generation
+- Suggestion generation for common errors
+- Validation result structure
+- Logging of validation failures
+
+**Testing Approach**:
+```javascript
+describe('windowValidator', () => {
+  test('should validate dimensions within acceptable range', () => {
+    const result = windowValidator.validateDimensions(36, 48);
+    expect(result.isValid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+  });
+  
+  test('should reject dimensions below minimum', () => {
+    const result = windowValidator.validateDimensions(10, 10);
+    expect(result.isValid).toBe(false);
+    expect(result.errors).toContain('Width must be at least 12 inches (1 foot)');
+    expect(result.suggestions).toContain('Standard windows start at 12 inches wide. Did you mean a larger size?');
+  });
+  
+  test('should integrate with messageParser', () => {
+    const result = messageParser.extractAndValidateSpecifications('I need a 150x150 window');
+    expect(result.validation.isValid).toBe(false);
+    expect(result.validationMessage).toContain('**Issues with your specifications:**');
+  });
+});
+```
+
+### 3. Conversation Manager
 
 Test coverage should include:
 - Conversation persistence
@@ -553,3 +609,41 @@ Common issues and solutions:
 2. **Mock Cleanup**: Use `jest.clearAllMocks()` in `beforeEach`
 3. **File Path Issues**: Use consistent path formats (relative vs. absolute)
 4. **Timeout Errors**: For slow tests, increase timeout or mock timers
+
+## Current Test Coverage
+
+As of May 25, 2025:
+
+- **Total Test Suites**: 22 passed
+- **Total Tests**: 354 passed, 2 skipped
+- **Coverage Areas**:
+  - Core services (100% of services have tests)
+  - Utility functions (100% of utils have tests)
+  - Controllers (basic coverage)
+  - Error handling components (comprehensive coverage)
+
+### Recently Added Test Suites
+
+1. **Error Handling Tests**:
+   - `clarificationService.test.js` - Tests for ambiguity clarification
+   - `conversationFlowService.test.js` - Tests for conversation flow management
+   - `errorContextService.test.js` - Tests for error context preservation
+   - `errorMonitoringServiceEnhanced.test.js` - Tests for pattern detection
+   - `errorRecoveryService.test.js` - Tests for recovery strategies
+   - `measurementDeferralService.test.js` - Tests for measurement deferrals
+   - `professionalMeasurementService.test.js` - Tests for measurement assessment
+
+2. **Utility Tests**:
+   - `ambiguityDetector.test.js` - Tests for ambiguity detection
+   - `questionGenerator.test.js` - Tests for question generation
+   - `specificationValidator.test.js` - Tests for specification validation
+   - `retryUtil.test.js` - Tests for retry mechanism
+   - `windowValidator.test.js` - Tests for window validation
+
+### Testing Best Practices
+
+1. **Mock External Dependencies**: Always mock external services (database, APIs)
+2. **Test Edge Cases**: Include tests for error conditions and boundary values
+3. **Use Descriptive Names**: Test names should clearly describe what is being tested
+4. **Keep Tests Isolated**: Each test should be independent of others
+5. **Mock Return Values Sequentially**: Use `mockReturnValueOnce` for different behaviors

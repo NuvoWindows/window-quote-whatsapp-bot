@@ -57,6 +57,9 @@ Claude 3 Haiku is used to generate conversational responses based on the user's 
 
 **Key Components:**
 - **Claude Service**: Interfaces with Anthropic's API to generate responses
+  - Integrated retry mechanisms with exponential backoff
+  - Service-specific error detection for retryable failures
+  - Environment variable configuration for retry parameters
 - **System Prompt**: Guides Claude to gather necessary information for a window quote
 - **Conversation Context**: Maintains context through multiple messages
 
@@ -65,7 +68,7 @@ Claude 3 Haiku is used to generate conversational responses based on the user's 
 The application provides comprehensive window installation quotes based on detailed specifications.
 
 **Key Components:**
-- **Quote Service**: Advanced pricing model for accurate window quotes
+- **Quote Service** (`quoteService.js`): Core pricing engine for window calculations
   - Base pricing tables by window operation type and square footage
   - Operation-specific pricing for Hung, Slider, Fixed, Casement, and Awning windows
   - Specialized pricing for shaped windows with arched tops
@@ -73,8 +76,56 @@ The application provides comprehensive window installation quotes based on detai
   - Support for optional features (Low-E glass, grilles, tinted/frosted glass)
   - Quantity-based discount calculation
   - Installation pricing based on window type and size
+- **Multi-Window Quote Service** (`multiWindowQuoteService.js`): Database layer for quote management
+  - Creates, reads, updates, and deletes quotes with multiple windows
+  - Manages quote status workflow (draft, complete, revision)
+  - Generates HTML/PDF quote files
+  - Uses Quote Service for pricing calculations
+  - Handles database persistence and retrieval
 - **Quote Detail Service**: Generates detailed HTML quotes for customers
-- **Message Parser**: Extracts window specifications from natural language input
+- **Specification Validator** (`specificationValidator.js`): Validates specifications and identifies missing fields
+  - Identifies missing required fields
+  - Prioritizes fields by importance
+  - Determines if specifications are complete
+- **Question Generator** (`questionGenerator.js`): Generates contextual questions
+  - Creates questions based on missing fields
+  - Considers already-known information
+  - Prioritizes questions by importance
+- **Ambiguity Detector** (`ambiguityDetector.js`): Detects and resolves ambiguous inputs
+  - Identifies ambiguous terms in user messages
+  - Suggests clarifications and defaults
+  - Resolves ambiguity based on user responses
+- **Message Parser** (`messageParser.js`): Extracts window specifications from single messages
+  - Parses individual messages for window details
+  - Returns structured data from natural language
+  - Used during real-time conversation processing
+  - Includes integrated validation of specifications
+- **Window Specification Parser** (`windowSpecParser.js`): Extracts specifications from conversation history
+  - Processes arrays of messages (full conversations)
+  - Handles multiple windows in a single conversation
+  - Groups windows by location or number
+  - Used for batch processing and quote generation
+- **Shared Extractors** (`sharedExtractors.js`): Common extraction logic
+  - Eliminates code duplication between parsers
+  - Central location for pattern matching
+  - Currently includes: dimensions, operation type, location, window type, pane count, options
+  - Ensures consistency across both parsers
+  - Returns raw extracted data without validation
+- **Window Validator** (`windowValidator.js`): Validates extracted specifications
+  - Validates dimension ranges (12" min, 120" max)
+  - Provides user-friendly error messages
+  - Suggests corrections for common errors
+  - Logs validation failures for analysis
+  - Validates unit conversions
+- **Retry Util** (`retryUtil.js`): Centralized retry mechanism
+  - Exponential backoff with jitter
+  - Configurable retry parameters
+  - Service-agnostic implementation
+
+**Service Separation Rationale:**
+- `quoteService.js` focuses solely on pricing calculations (business logic)
+- `multiWindowQuoteService.js` handles database operations and quote lifecycle
+- This separation allows the pricing engine to be used independently and tested in isolation
 
 ### 5. Conversation Context Management
 
@@ -82,12 +133,63 @@ The application uses a persistent SQLite database to maintain conversation conte
 
 **Key Components:**
 - **Conversation Manager**: Central service that handles conversation persistence and retrieval
+  - Supports partial specification storage
+  - Handles conversation deferrals and resumptions
+  - Manages clarification states
 - **SQLite Database**: Stores conversations, messages, and structured window specifications
 - **Context Optimization**: Enhances conversations with previously extracted window specifications
 - **Context Summarization**: Intelligently summarizes long conversations to manage token limits
 - **Token Estimation**: Calculates and manages token usage for Claude API requests
 - **Window Specification Parser**: Extracts structured data from conversation messages
 - **Expiry Mechanism**: Automatically purges old conversations after 30 days
+
+### 6. Error Handling and Recovery
+
+Comprehensive error handling system for graceful failure recovery.
+
+**Key Components:**
+- **Conversation Flow Service** (`conversationFlowService.js`): Manages conversation flow
+  - Handles returning users with partial specifications
+  - Manages conversation resumption
+  - Applies defaults for expired conversations
+  - Saves progress after each interaction
+  - Integrates with clarification and measurement services
+- **Clarification Service** (`clarificationService.js`): Handles ambiguous inputs
+  - Generates context-aware clarification requests
+  - Processes user clarifications
+  - Tracks pending clarifications
+  - Prioritizes ambiguities based on importance
+- **Error Context Service** (`errorContextService.js`): Preserves error context
+  - Captures comprehensive error information
+  - Determines conversation phase during errors
+  - Saves error context for recovery
+  - Provides context for retry decisions
+- **Error Recovery Service** (`errorRecoveryService.js`): Implements recovery strategies
+  - Different strategies for different error types
+  - Context-aware recovery messages
+  - Integration with retry mechanisms
+  - Graceful degradation options
+- **Error Monitoring Service** (`errorMonitoringService.js`): Pattern detection and alerting
+  - Multiple detection strategies (frequency, user impact, error chains, time correlation)
+  - Priority-based alerting across multiple channels (console, Slack, email, PagerDuty)
+  - Service health calculation and metrics
+  - Dashboard integration for visualization
+  - Error pattern aggregation and analysis
+- **Retry Util** (`retryUtil.js`): Centralized retry mechanism
+  - Exponential backoff with jitter
+  - Configurable retry limits and delays
+  - Context-aware retry decisions
+  - Integration with error monitoring
+- **Professional Measurement Service** (`professionalMeasurementService.js`): Lead generation
+  - Assesses measurement complexity
+  - Offers professional measurement scheduling
+  - Extracts and validates contact information
+  - Creates measurement leads
+- **Measurement Deferral Service** (`measurementDeferralService.js`): Deferred quotes
+  - Allows users to defer measurements
+  - Manages resumption of deferred conversations
+  - Tracks missing information
+  - Provides helpful resources
 
 ## Data Flow
 
@@ -129,11 +231,28 @@ The application uses a persistent SQLite database to maintain conversation conte
 - `GET /api/quotes/details`: Get a detailed quote as an HTML document
 - `GET /api/quotes/sample`: Get a sample quote for demonstration
 
+### Quote Management API
+- `POST /api/quote-management/quotes`: Create a new quote
+- `GET /api/quote-management/quotes/:id`: Get a quote by ID
+- `PUT /api/quote-management/quotes/:id`: Update a quote
+- `DELETE /api/quote-management/quotes/:id`: Delete a quote
+- `GET /api/quote-management/quotes`: Get recent quotes
+- `POST /api/quote-management/quotes/:id/windows`: Add a window to a quote
+- `PUT /api/quote-management/windows/:windowId`: Update a window
+- `DELETE /api/quote-management/windows/:windowId`: Remove a window
+- `POST /api/quote-management/quotes/:id/complete`: Complete a quote
+- `GET /api/quote-management/quotes/:id/file`: Generate and get the quote file
+- `GET /api/quote-management/quotes/customer/:customerId`: Get quotes by customer
+- `GET /api/quote-management/quotes/conversation/:conversationId`: Get quotes by conversation
+- `POST /api/quote-management/quotes/from-conversation/:conversationId`: Create a quote from conversation
+
 ### Admin API
 - `GET /admin/conversations`: List all active conversations
 - `GET /admin/conversations/:userId`: Get details for a specific conversation
 - `DELETE /admin/conversations/:userId`: Delete a specific conversation
 - `POST /admin/expire-conversations`: Force expire old conversations
+- `GET /admin/errors/dashboard`: Error monitoring dashboard data
+- `GET /admin/errors/stats`: Error statistics by category
 
 ## Environment Configuration
 
@@ -359,9 +478,9 @@ Potential areas for enhancement include:
 - Rate limiting and request throttling
 
 ### Quote System Enhancements
-- Database-backed quote storage with unique quote IDs
-- Support for multi-window quotes in a single project
-- Quote status tracking (draft, sent, accepted, declined)
+- ✅ Database-backed quote storage with unique quote IDs
+- ✅ Support for multi-window quotes in a single project
+- ✅ Quote status tracking (draft, complete, revision)
 - Enhanced quote documents with company branding
 - Email delivery of quote PDFs
 - Quote comparison and revision history
@@ -440,24 +559,56 @@ src/
 ├── config/         # Configuration settings
 │   └── config.js   # Environment variables and settings
 ├── controllers/    # Route controllers
-│   ├── quoteController.js   # Quote generation controller
-│   └── whatsappController.js # WhatsApp webhook controller
+│   ├── quoteController.js           # Quote generation controller
+│   ├── quoteManagementController.js # Multi-window quote management controller
+│   └── whatsappController.js        # WhatsApp webhook controller
+├── db/             # Database schemas
+│   └── quote_schema.js              # Multi-window quote database schema
+├── models/         # Database models
+│   └── quoteModel.js                # Quote database operations
 ├── routes/         # API routes
-│   ├── whatsappRoutes.js    # WhatsApp webhook routes
-│   └── adminRoutes.js       # Admin API routes
+│   ├── adminRoutes.js               # Admin API routes
+│   ├── quoteManagementRoutes.js     # Multi-window quote management routes
+│   ├── quoteRoutes.js               # Quote generation routes
+│   └── whatsappRoutes.js            # WhatsApp webhook routes
 ├── services/       # Business logic
-│   ├── claudeService.js     # Claude AI integration
-│   ├── conversationManager.js # Conversation persistence
-│   ├── quoteService.js      # Quote calculation logic
-│   └── whatsappService.js   # WhatsApp API integration
+│   ├── claudeService.js             # Claude AI integration
+│   ├── clarificationService.js      # Ambiguity clarification
+│   ├── claudeService.js             # Claude AI integration
+│   ├── conversationFlowService.js   # Conversation flow management
+│   ├── conversationManager.js       # Conversation persistence
+│   ├── errorContextService.js       # Error context preservation
+│   ├── errorMonitoringService.js    # Error pattern monitoring
+│   ├── errorRecoveryService.js      # Error recovery strategies
+│   ├── measurementDeferralService.js # Measurement deferral handling
+│   ├── multiWindowQuoteService.js   # Multi-window quote management
+│   ├── professionalMeasurementService.js # Professional measurement leads
+│   ├── quoteDetailService.js        # Quote HTML generation
+│   ├── quoteService.js              # Quote calculation logic
+│   └── whatsappService.js           # WhatsApp API integration
 ├── utils/          # Utility functions
-│   ├── database.js          # SQLite database management
-│   ├── logger.js            # Structured logging system
-│   ├── messageParser.js     # WhatsApp message parsing
-│   └── windowSpecParser.js  # Window specification extraction
+│   ├── ambiguityDetector.js         # Ambiguous term detection
+│   ├── contextSummarizer.js         # Conversation summarization
+│   ├── database.js                  # SQLite database management
+│   ├── logger.js                    # Enhanced structured logging
+│   ├── messageParser.js             # WhatsApp message parsing
+│   ├── questionGenerator.js         # Dynamic question generation
+│   ├── retryUtil.js                 # Centralized retry mechanism
+│   ├── sharedExtractors.js         # Common extraction logic
+│   ├── specificationValidator.js    # Specification validation
+│   ├── tokenEstimator.js           # Token usage estimation
+│   ├── windowSpecParser.js          # Window specification extraction
+│   └── windowValidator.js          # Window dimension validation
 └── index.js        # Application entry point
 
 data/               # SQLite database storage (Git-ignored)
 logs/               # Application logs (Git-ignored)
 docs/               # Technical documentation
+│   ├── ADMIN_API.md                 # Admin API documentation
+│   ├── CONVERSATION_CONTEXT.md      # Conversation context system documentation
+│   ├── QUOTE_MANAGEMENT_API.md      # Multi-window quote API documentation
+│   ├── SYSTEM_PROMPT.md             # Claude system prompt documentation
+│   └── TEST_STRATEGY.md             # Testing strategy documentation
+public/             # Public assets
+└── quotes/                          # Generated quote HTML files
 ```
