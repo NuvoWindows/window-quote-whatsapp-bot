@@ -95,7 +95,55 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
    - Retry mechanisms for transient failures
    - Monitoring for common failure patterns
 
-**Milestone 2: Admin Dashboard & Analytics**
+**Milestone 2: Quote Document Enhancements**
+- [ ] Implement PDF generation for quotes
+- [ ] Add email delivery system for quotes
+- [ ] Create quote follow-up reminder system
+- [ ] Design comprehensive quote template with branding
+
+**Tasks:**
+1. Integrate PDF generation library (puppeteer or similar)
+2. Set up email service (SendGrid/AWS SES)
+3. Create scheduled job system for follow-ups
+4. Design comprehensive quote template with:
+   - Company branding (logo, colors, fonts)
+   - Professional layout with all quote details
+   - Terms and conditions section
+   - Validity period and expiration date
+5. Add quote tracking and analytics
+
+**Milestone 3: Multi-Panel Window Support**
+- [ ] Enhance data model to support panel-level specifications
+- [ ] Update parser to extract multi-panel configurations
+- [ ] Implement panel-level pricing calculations
+- [ ] Update validation for panel-specific requirements
+- [ ] Enhance AI system prompt for multi-panel conversations
+
+**Tasks:**
+1. Create `window_panels` table for panel details
+2. Update message parser for multi-panel patterns
+3. Implement panel-specific pricing logic
+4. Update quote documents to show panel layouts
+5. Enhance conversation flow for panel collection
+6. Add validation for panel configurations
+
+*See [MULTI_PANEL_IMPLEMENTATION.md](../docs/MULTI_PANEL_IMPLEMENTATION.md) for detailed implementation notes.*
+
+**Milestone 4: Business Operations Integration**
+- [ ] Implement CRM integration framework
+- [ ] Add appointment scheduling capabilities
+- [ ] Create lead scoring and qualification system
+- [ ] Build business analytics dashboard
+
+**Tasks:**
+1. Design CRM integration API (Salesforce/HubSpot)
+2. Create appointment booking system
+3. Implement lead scoring algorithm
+4. Build qualification criteria system
+5. Create business metrics dashboard
+6. Add ROI tracking capabilities
+
+**Milestone 5: Admin Dashboard & Analytics**
 - [ ] Create a web interface for the admin API
 - [ ] Implement conversation visualization and management
 - [ ] Add user interaction metrics and analytics
@@ -109,7 +157,7 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 5. Implement advanced logging features (compression, search)
 6. Add analytics for user interactions and conversation patterns
 
-**Milestone 3: System Robustness**
+**Milestone 6: System Robustness**
 - [ ] Migrate to a production-grade database
 - [ ] Implement advanced error recovery mechanisms
 - [ ] Set up monitoring and alerting
@@ -123,20 +171,23 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 5. Add system health monitoring and alerts
 6. Create backup and restoration procedures
 
-## Phase 4: User Experience Enhancement
-*Estimated timeline: 1-2 weeks*
+## Phase 4: Customer Experience Enhancement
+*Estimated timeline: 2-3 weeks*
 
-**Milestone: Improved Conversation Flow**
+**Milestone: Enhanced Customer Interactions**
+- [ ] Add voice message transcription support
+- [ ] Implement image sharing for window examples
 - [ ] Add contextual follow-up questions when information is missing
 - [ ] Implement multi-step quote process with confirmation
 - [ ] Add quick reply buttons where supported
-- [ ] Include image capability for window style references
 
 **Tasks:**
-1. Update WhatsApp message templates for structured responses
-2. Enhance conversation context management
-3. Add media message support
-4. Implement quick replies and suggestion buttons
+1. Integrate voice-to-text service (Google Speech/AWS Transcribe)
+2. Create image library of window styles and types
+3. Implement image recognition for window photos
+4. Update WhatsApp message templates for structured responses
+5. Add media message support
+6. Implement quick replies and suggestion buttons
 
 ## Phase 5: Testing & Quality Assurance
 *Estimated timeline: 1-2 weeks*
@@ -185,72 +236,6 @@ This roadmap outlines the implementation plan for the Window Quote WhatsApp Bot,
 3. Implement A/B testing framework
 4. Optimize system prompt based on user interactions
 
-**Future Enhancement: Multi-Panel Window Support**
-*Estimated timeline: 3-4 weeks*
-
-**Background:** Current system treats each window as a single unit with one operation type. Many windows have multiple panels with different operation types (e.g., fixed center with casement sides).
-
-**Milestone: Comprehensive Multi-Panel Support**
-- [ ] Enhance data model to support panel-level specifications
-- [ ] Update parser to extract multi-panel configurations
-- [ ] Implement panel-level pricing calculations
-- [ ] Update validation for panel-specific requirements
-- [ ] Enhance AI system prompt for multi-panel conversations
-
-**Required Changes:**
-
-1. **Data Model Changes**
-   - Create `window_panels` table to store panel-level details
-   - Each window can have multiple panels with own dimensions and operation types
-   - Store panel position (left, center, right) and configuration
-
-2. **Message Parser Enhancement**
-   - Parse configurations like "fixed center with casement sides"
-   - Extract individual panel dimensions: "center 48x60, sides 24x60"
-   - Handle common multi-panel patterns and terminology
-   - Return panel array in specifications
-
-3. **System Prompt Updates**
-   - Educate Claude on multi-panel window terminology
-   - Guide question flow for panel configurations
-   - Handle complex specs like "bay window with fixed center, double-hung sides"
-   - Update information gathering sequence for panel details
-
-4. **Pricing Logic Overhaul**
-   - Calculate each panel's price separately
-   - Window price is sum of panels
-   - Update bay window calculations (already multi-section)
-   
-5. **Validation System Updates**
-   - Panel-specific dimension validation
-   - Compatibility checks between adjacent panels
-   - Different min/max ranges per panel based on operation type
-   - Each operation type should have its own dimension ranges
-
-6. **Quote Generation Changes**
-   - Sum panel costs for totals
-   - Update PDF templates for panel details
-   - Display panel configuration clearly
-
-7. **UI/UX Impact**
-   - Admin interface needs panel management
-   - Quote display must show panel configurations
-   - Conversation flow becomes more complex
-   - Need visual representation of panel layouts
-
-**Implementation Phases:**
-1. Foundation: Document limitations, gather multi-panel request data
-2. Data Model Evolution: Schema updates, migration scripts
-3. Parser Enhancement: Multi-panel parsing patterns
-4. Pricing Engine: Panel-level calculations
-5. AI Integration: Update prompts and conversation flow
-6. UI Updates: Admin and customer-facing changes
-
-**Technical Considerations:**
-- Maintain backward compatibility with single-panel windows
-- Consider performance impact of multiple panel queries
-- Implement proper panel relationship constraints
-- Handle edge cases (max panels, unusual configurations)
 
 ## GitHub Project Management
 
